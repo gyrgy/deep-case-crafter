@@ -48,4 +48,4 @@ jobs:
           path: coverage
 
       - name: Display Test Coverage Summary
-        run: cat coverage/lcov-report/index.html || echo "No coverage report found."
+        run: npx jest --coverage --coverageReporters=text-summary
