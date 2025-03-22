@@ -1,30 +1,67 @@
 # DeepCaseCrafter
 
-Transforms deeply nested object, array, Map, and Set keys between common case formats while preserving TypeScript type safety.
+🚀 **DeepCaseCrafter** is a TypeScript utility that **transforms deeply nested object keys** into different case formats while maintaining **type safety**. It supports **objects, arrays, Maps, and Sets** and allows **custom recursion depth**.
+
+[![npm version](https://img.shields.io/npm/v/deep-case-crafter)](https://www.npmjs.com/package/deep-case-crafter)
+[![License: MIT](https://img.shields.io/npm/l/deep-case-crafter)](https://github.com/your-repo/deep-case-crafter/blob/main/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
 
 ## Features
 
-- 🚀 Supports transformations between `snake_case`, `camelCase`, `PascalCase`, and `kebab-case`.
-- 🔄 Recursively transforms deeply nested objects, arrays, Maps, and Sets.
-- ✅ Preserves TypeScript type inference for precise auto-completion.
-- 🔍 Detects preserved keys (those starting with special characters or numbers, containing `--` or `__`).
-- ⚡ Customizable recursion depth (defaults to 3).
-- 🔥 Optimized for performance with minimal overhead.
-- 📦 Lightweight bundle size (~27.33 KB).
+- 🔄 **Automatically converts keys** to `camelCase`, `PascalCase`, `snake_case`, and `kebab-case`.
+- 🌍 **Works with deeply nested structures**, including objects, arrays, Maps, and Sets.
+- ✅ **Maintains TypeScript type inference** for better auto-completion.
+- 🔍 **Preserves special keys** (`__`, `--`, leading numbers, special characters).
+- ⚡ **Performance-optimized** with minimal overhead.
+- 🎛 **Configurable recursion depth** (default: `3`).
 
-## Installation
+## 📦 Installation
 
 ```bash
 npm install deep-case-crafter
 ```
 
-## Usage
+---
 
-### Transforming an Object
+## 🚀 Quick Start
+
+### 1️⃣ **Basic Usage – Just Call `transform`**
 
 ```typescript
 import transform from 'deep-case-crafter';
 
+const input = { user_id: 1, first_name: 'John' };
+const result = transform(input);
+
+console.log(result);
+// Output: { userId: 1, firstName: 'John' }
+```
+
+_(Automatically converts from `snake_case` to `camelCase`)_
+
+---
+
+### 2️⃣ **Specify the `targetCase`**
+
+```typescript
+const input = { user_id: 1, first_name: 'John' };
+
+const pascalCaseResult = transform(input, { targetCase: 'pascal' });
+console.log(pascalCaseResult);
+// Output: { UserId: 1, FirstName: 'John' }
+
+const kebabCaseResult = transform(input, { targetCase: 'kebab' });
+console.log(kebabCaseResult);
+// Output: { "user-id": 1, "first-name": "John" }
+```
+
+---
+
+### 3️⃣ **Explicitly Define `sourceCase` for TypeScript Benefits**
+
+_TypeScript automatically infers key changes when `sourceCase` is set._
+
+```typescript
 const input = { user_id: 1, first_name: 'John' };
 const result = transform(input, { targetCase: 'camel', sourceCase: 'snake' });
 
@@ -32,7 +69,9 @@ console.log(result);
 // Output: { userId: 1, firstName: 'John' }
 ```
 
-### Transforming Deeply Nested Data
+---
+
+### 4️⃣ **Transform Deeply Nested Structures**
 
 ```typescript
 const nestedInput = {
@@ -40,8 +79,12 @@ const nestedInput = {
   posts: [{ post_id: 1, post_title: 'Hello' }],
 };
 
-const transformed = transform(nestedInput, { targetCase: 'camel' });
+const transformed = transform(nestedInput, {
+  targetCase: 'camel',
+  sourceCase: 'snake',
+});
 
+console.log(transformed);
 // Output:
 // {
 //   userInfo: { firstName: 'John', lastName: 'Doe' },
@@ -49,7 +92,9 @@ const transformed = transform(nestedInput, { targetCase: 'camel' });
 // }
 ```
 
-### Transforming a Map
+---
+
+### 5️⃣ **Transforming a `Map`**
 
 ```typescript
 const mapInput = new Map([
@@ -66,7 +111,9 @@ console.log(result.get('userId')); // 1
 console.log(result.get('firstName')); // 'John'
 ```
 
-### Transforming a Set
+---
+
+### 6️⃣ **Transforming a `Set`**
 
 ```typescript
 const setInput = new Set(['user_id', 'first_name']);
@@ -78,44 +125,56 @@ const result = transform(setInput, {
 console.log(result); // Set { 'userId', 'firstName' }
 ```
 
-## API
+---
+
+## 📖 API
 
 ### `transform(data, options)`
 
 - **data**: The data structure to transform (`object`, `array`, `Map`, or `Set`).
 - **options**:
-  - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab'` **defaults** to `'camel'`
-  - `sourceCase` (optional): Specify the source case for better type inference.
-  - `depth` (optional): Specify recursion depth (default is 3).
+  - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab'` (default: `'camel'`)
+  - `sourceCase` (optional): **Required for TypeScript inference** (`'snake' | 'camel' | 'pascal' | 'kebab'`).
+  - `depth` (optional): **Recursion depth** (default: `3`, use `Infinity` for full recursion).
 
-### Preserved Keys
+---
 
-Keys are automatically preserved (not transformed) if:
+## 🚨 Key Preservation Rules
 
-- They start with a special character or number.
-- They contain `__` or `--`.
-- Numbers at the end are allowed.
+- **Keys that start with special characters or numbers** are **not transformed**.
+- **Keys with `__` or `--` remain unchanged**.
+- **Numbers at the end of keys** are preserved.
 
-### Case Detection
+---
 
-- Runtime case detection is **always** performed for each key.
-- Specifying `sourceCase` enhances TypeScript type inference but does not influence runtime detection.
+## ⚡ Performance & Benchmarks
 
-## Performance Considerations
+DeepCaseCrafter is optimized for speed and efficiency:
 
-- **Default Depth**: 3 levels deep to avoid unnecessary processing.
-- **Custom Depth**: Set `depth` to control recursion. Use `Infinity` for full recursion.
-- **Lightweight**: Optimized for performance with minimal package size.
-- **Benchmarks**: Transform Deep Object (Depth 5, Width 10) x 361,538 ops/sec ±0.12% (91 runs sampled)
-  Fastest is Transform Deep Object (Depth 5, Width 10)
+```plaintext
+Transform Deep Object (Depth 5, Width 10)
+x 361,538 ops/sec ±0.12% (91 runs sampled)
+```
 
-## Contribution
+---
 
-1. Fork the repository.
-2. Create a new branch.
-3. Commit your changes.
-4. Submit a pull request.
+## 💡 Contributing
 
-## License
+1. **Fork** the repository.
+2. **Create a new branch** (`feature/my-feature`).
+3. **Commit your changes** (`git commit -m "Add new feature"`).
+4. **Submit a pull request** 🚀.
+
+---
+
+## 📜 License
 
 MIT
+
+---
+
+## 🔗 Links
+
+- [NPM Package](https://www.npmjs.com/package/deep-case-crafter)
+- [GitHub Repository](https://github.com/your-repo/deep-case-crafter)
+- [TypeScript Docs](https://www.typescriptlang.org/)
