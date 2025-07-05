@@ -270,4 +270,26 @@ describe('transform (recursive)', () => {
     const result = transform(input, undefined);
     expect(result).toEqual(expected);
   });
+
+  it('should accept the return type', () => {
+    type Input = {
+      user_id: number;
+      first_name: string;
+    };
+
+    const obj = {
+      user_id: 1,
+      first_name: 'John',
+    };
+
+    type Output = {
+      userId: number;
+      firstName: string;
+    };
+
+    const result = transform<Input, Output>(obj, { targetCase: 'camel' });
+    const typedResult: Output = result;
+
+    expect(typedResult).toEqual({ userId: 1, firstName: 'John' });
+  });
 });

@@ -16,6 +16,17 @@ function transform<T, From extends StringCase, To extends StringCase>(
   },
 ): TransformRecursive<T, From, To>;
 
+/**
+ * Transform data to a specified output type.
+ *
+ * Note: When using this overload, type safety is not enforced between the input, options, and output type.
+ * The 'sourceCase' option is intentionally omitted, as it is not used for type inference here.
+ */
+function transform<T, K>(
+  data: T,
+  options?: Omit<TransformOptions, 'sourceCase'> & { depth?: number },
+): K;
+
 // Default case (no options or just targetCase specified)
 function transform<T>(
   data: T,

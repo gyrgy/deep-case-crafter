@@ -139,6 +139,28 @@ console.log(result); // Set { 'userId', 'firstName' }
 
 ---
 
+## 🧑‍💻 Advanced: Explicit Output Type Overload
+
+If you want to specify the output type explicitly (for example, when you know the exact shape you want), you can use the following overload:
+
+```typescript
+const result = transform<Input, Output>(obj, { targetCase: 'camel' });
+const typedResult: Output = result; // TypeScript will enforce Output type here
+```
+
+**Note:**
+
+- When using this overload, you cannot pass `sourceCase` in the options. If you do, TypeScript will show an error:
+  > Object literal may only specify known properties, and 'sourceCase' does not exist in type 'Omit<TransformOptions, "sourceCase"> & { depth?: number }'.
+- This overload is useful when you want to take full control of the output type, but type safety between input, options, and output is not enforced by the library.
+- If you want to use `sourceCase` and benefit from type inference, use the standard overload:
+
+```typescript
+const result = transform(obj, { targetCase: 'camel', sourceCase: 'snake' }); // Output type is inferred
+```
+
+---
+
 ## 🚨 Key Preservation Rules
 
 - **Keys that start with special characters or numbers** are **not transformed**.
