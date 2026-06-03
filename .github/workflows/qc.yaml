@@ -30,7 +30,9 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        # `npm install` (not `npm ci`) tolerates lockfiles that a single-platform
+        # `npm install` has pruned of other platforms' optional deps (npm/cli#4828).
+        run: npm install --no-audit --no-fund
 
       - name: Perform Lint Check
         run: npm run lint
