@@ -7,10 +7,12 @@ module.exports = {
   testPathIgnorePatterns: [
     '<rootDir>/src/constants/',
     '<rootDir>/src/index.ts',
+    '<rootDir>/src/__type-tests__/',
   ],
   coveragePathIgnorePatterns: [
     '<rootDir>/src/constants/',
     '<rootDir>/src/index.ts',
+    '<rootDir>/src/__type-tests__/',
   ],
   coverageDirectory: './coverage',
   collectCoverageFrom: ['src/**/*.{js,jsx,ts,tsx}'],

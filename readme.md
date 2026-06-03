@@ -155,7 +155,7 @@ console.log(transform(strings, { targetCase: 'camel', sourceCase: 'snake' }));
   - `sourceCase` (optional): `'snake' | 'camel' | 'pascal' | 'kebab'`. Omit it to auto-detect each key's case at runtime.
   - `depth` (optional): **Recursion depth** (default: `Infinity` — the whole structure is transformed). Pass a number to stop transforming below that level. Circular references are always handled safely.
 
-> **TypeScript inference:** precise output types are produced only when both `sourceCase` and `targetCase` are passed. Without both, the call still works at runtime (auto-detecting each key) but the result type is widened.
+> **TypeScript inference:** precise output types are produced only when both `sourceCase` and `targetCase` are passed. Without both, the call still works at runtime (auto-detecting each key) but the result type is `unknown`.
 
 ---
 

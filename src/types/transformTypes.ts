@@ -202,7 +202,10 @@ type ForbiddenStartChars =
   | ','
   | '.'
   | '?'
-  | '/';
+  | '/'
+  // A leading digit is preserved at runtime (keys must start with a letter),
+  // so the type must preserve it too. A single digit char extends `${number}`.
+  | `${number}`;
 
 type ForbiddenEndChars =
   | '_'

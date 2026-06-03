@@ -1,6 +1,6 @@
 {
   "name": "deep-case-crafter",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Transforms deeply nested object, array, Map, and Set keys between common case formats while preserving TypeScript type safety",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

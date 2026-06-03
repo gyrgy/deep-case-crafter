@@ -34,7 +34,12 @@ export default [
       commonjs(),
       typescript({
         tsconfig: './tsconfig.json',
-        exclude: ['**/__tests__/**', '**/*.test.ts', '**/benchmark/**'],
+        exclude: [
+          '**/__tests__/**',
+          '**/__type-tests__/**',
+          '**/*.test.ts',
+          '**/benchmark/**',
+        ],
         rootDir: 'src',
         declaration: false,
         declarationMap: false,
