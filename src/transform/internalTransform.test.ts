@@ -27,6 +27,22 @@ describe('internalTransform', () => {
     expect(result).toEqual(new Map([['keyValue', { nestedKey: 'value' }]]));
   });
 
+  it('should transform map keys but leave primitive values unchanged', () => {
+    const map = new Map<string, unknown>([
+      ['user_id', 1],
+      ['first_name', 'John'],
+      ['maybe_null', null],
+    ]);
+    const result = internalTransform(map, options);
+    expect(result).toEqual(
+      new Map<string, unknown>([
+        ['userId', 1],
+        ['firstName', 'John'],
+        ['maybeNull', null],
+      ]),
+    );
+  });
+
   it('should handle sets and recursively transform items', () => {
     const set = new Set([{ key_value: 'value' }, 123, 'string']);
     const result = internalTransform(set, options);

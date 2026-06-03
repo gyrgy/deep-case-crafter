@@ -30,8 +30,9 @@ export default function internalTransform(
     return visitedRefs.get(data as object);
   }
 
-  // Get max depth (default to 3 if not specified)
-  const maxDepth = options.depth ?? 3;
+  // Get max depth (default to unlimited recursion if not specified).
+  // Circular references are still handled via `visitedRefs`, so Infinity is safe.
+  const maxDepth = options.depth ?? Infinity;
 
   // Stop recursion if maximum depth is reached
   if (currentDepth >= maxDepth) {
@@ -44,6 +45,9 @@ export default function internalTransform(
     depth: maxDepth,
   };
 
+  // Reaching this point guarantees `currentDepth < maxDepth` (we returned
+  // early above otherwise), so recursion into children is always performed
+  // here; the recursive call's own depth guard stops it at the boundary.
   let result: unknown;
 
   // Apply the appropriate transformer based on the data type
@@ -51,92 +55,73 @@ export default function internalTransform(
     // Transform array
     result = transformArray(data, options);
 
-    // Add the result to visited references to handle circular refs
+    // Track the result first so circular references resolve to it.
     visitedRefs.set(data, result);
 
     // Recursively transform array items that are objects or arrays
-    if (currentDepth < maxDepth) {
-      result = (result as unknown[]).map((item) =>
-        internalTransform(
-          item,
-          recursiveOptions,
-          visitedRefs,
-          currentDepth + 1,
-        ),
-      );
-    }
+    result = (result as unknown[]).map((item) =>
+      internalTransform(item, recursiveOptions, visitedRefs, currentDepth + 1),
+    );
   } else if (data instanceof Map) {
     // Transform Map keys
     result = transformMap(data, options);
-
-    // Add the result to visited references to handle circular refs
     visitedRefs.set(data, result);
 
     // Recursively transform Map values that are objects or arrays
-    if (currentDepth < maxDepth) {
-      const transformedMap = result as Map<unknown, unknown>;
-      for (const [key, value] of transformedMap.entries()) {
-        if (value !== null && typeof value === 'object') {
-          transformedMap.set(
-            key,
-            internalTransform(
-              value,
-              recursiveOptions,
-              visitedRefs,
-              currentDepth + 1,
-            ),
-          );
-        }
+    const transformedMap = result as Map<unknown, unknown>;
+    for (const [key, value] of transformedMap.entries()) {
+      if (value !== null && typeof value === 'object') {
+        transformedMap.set(
+          key,
+          internalTransform(
+            value,
+            recursiveOptions,
+            visitedRefs,
+            currentDepth + 1,
+          ),
+        );
       }
     }
   } else if (data instanceof Set) {
     // Don't transform Set values, just create a new Set
     result = new Set(data);
-
-    // Add the result to visited references to handle circular refs
     visitedRefs.set(data, result);
 
     // But recursively transform Set items that are objects or arrays
-    if (currentDepth < maxDepth) {
-      const transformedSet = result as Set<unknown>;
-      const originalValues = Array.from(transformedSet);
-      transformedSet.clear();
+    const transformedSet = result as Set<unknown>;
+    const originalValues = Array.from(transformedSet);
+    transformedSet.clear();
 
-      for (const value of originalValues) {
-        if (value !== null && typeof value === 'object') {
-          transformedSet.add(
-            internalTransform(
-              value,
-              recursiveOptions,
-              visitedRefs,
-              currentDepth + 1,
-            ),
-          );
-        } else {
-          transformedSet.add(value);
-        }
+    for (const value of originalValues) {
+      if (value !== null && typeof value === 'object') {
+        transformedSet.add(
+          internalTransform(
+            value,
+            recursiveOptions,
+            visitedRefs,
+            currentDepth + 1,
+          ),
+        );
+      } else {
+        transformedSet.add(value);
       }
     }
   } else {
     // Transform plain object
     result = transformObject(data as Record<string, unknown>, options);
-
-    // Add the result to visited references to handle circular refs
     visitedRefs.set(data, result);
 
     // Recursively transform nested objects
-    if (currentDepth < maxDepth) {
-      const transformedObj = result as Record<string, unknown>;
-      for (const key in transformedObj) {
-        const value = transformedObj[key];
-        if (value !== null && typeof value === 'object') {
-          transformedObj[key] = internalTransform(
-            value,
-            recursiveOptions,
-            visitedRefs,
-            currentDepth + 1,
-          );
-        }
+    const transformedObj = result as Record<string, unknown>;
+    for (const key in transformedObj) {
+      const value = transformedObj[key];
+      if (value !== null && typeof value === 'object') {
+        transformedObj[key] = internalTransform(
+          value,
+          recursiveOptions,
+          visitedRefs,
+          currentDepth + 1,
+        );
       }
     }
   }

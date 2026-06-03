@@ -41,7 +41,7 @@ function transform<T>(
   const internalOptions = {
     ...options,
     targetCase: options?.targetCase || 'camel',
-    depth: options?.depth ?? 3,
+    depth: options?.depth ?? Infinity,
   } as TransformOptionsInternal & { depth?: number };
 
   return internalTransform(data, internalOptions);

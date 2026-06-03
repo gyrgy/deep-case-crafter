@@ -245,10 +245,10 @@ describe('transform (recursive)', () => {
     expect(result).toEqual(expected);
   });
 
-  it('should use default depth when none is provided', () => {
+  it('should default to unlimited depth when none is provided', () => {
     const input = { a_key: { b_key: { c_key: { d_key: 'value' } } } };
     const result = transform(input, { targetCase: 'camel' });
-    expect(result).toEqual({ aKey: { bKey: { cKey: { d_key: 'value' } } } });
+    expect(result).toEqual({ aKey: { bKey: { cKey: { dKey: 'value' } } } });
   });
 
   it('should apply default targetCase when undefined is explicitly passed', () => {
@@ -258,10 +258,10 @@ describe('transform (recursive)', () => {
     expect(result).toEqual(expected);
   });
 
-  it('should apply default depth when undefined is explicitly passed', () => {
+  it('should apply unlimited default depth when undefined is explicitly passed', () => {
     const input = { a_key: { b_key: { c_key: { d_key: 'value' } } } };
     const result = transform(input, { targetCase: 'camel', depth: undefined });
-    expect(result).toEqual({ aKey: { bKey: { cKey: { d_key: 'value' } } } });
+    expect(result).toEqual({ aKey: { bKey: { cKey: { dKey: 'value' } } } });
   });
 
   it('should use defaults when options are explicitly undefined', () => {

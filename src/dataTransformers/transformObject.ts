@@ -49,13 +49,10 @@ export default function transformObject<
     }
   }
 
-  // Handle Symbol keys separately (they won't be caught by for...in)
-  if (Object.getOwnPropertySymbols) {
-    const symbolKeys = Object.getOwnPropertySymbols(obj);
-    for (const sym of symbolKeys) {
-      // Use a more type-safe approach for symbol properties
-      result[sym] = (obj as Record<symbol, unknown>)[sym];
-    }
+  // Handle Symbol keys separately (they won't be caught by for...in).
+  // Symbol-keyed properties are copied across unchanged.
+  for (const sym of Object.getOwnPropertySymbols(obj)) {
+    result[sym] = (obj as Record<symbol, unknown>)[sym];
   }
 
   return result as TransformObjectReturn<T, O>;
