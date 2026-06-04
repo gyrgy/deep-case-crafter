@@ -54,30 +54,51 @@ type IsLowerOrDigit<C extends string> =
   IsLower<C> extends true ? true : C extends `${number}` ? true : false;
 type FirstChar<S extends string> = S extends `${infer F}${string}` ? F : '';
 
+/**
+ * Whether an uppercase `C` at the current position begins a new word (so a
+ * separator goes before it): true when the previous char is lower/digit, or when
+ * `C` ends an acronym run (two preceding uppercase chars) followed by a lowercase.
+ */
+type NeedsSeparator<
+  C extends string,
+  Prev extends string,
+  PrevPrev extends string,
+  Next extends string,
+> =
+  IsUpper<C> extends true
+    ? IsLowerOrDigit<Prev> extends true
+      ? true
+      : IsUpper<Prev> extends true
+        ? IsUpper<PrevPrev> extends true
+          ? IsLower<Next>
+          : false
+        : false
+    : false;
+
+// Tail-recursive accumulator form: TS eliminates the tail call, so this handles
+// long keys (~1000 chars) instead of hitting the instantiation-depth limit around
+// ~55 chars that the nested form did.
 type SeparatorScan<
   S extends string,
   Sep extends string,
-  Prev extends string,
-  PrevPrev extends string,
+  Prev extends string = '',
+  PrevPrev extends string = '',
+  Acc extends string = '',
 > = S extends `${infer C}${infer R}`
-  ? IsUpper<C> extends true
-    ? IsLowerOrDigit<Prev> extends true
-      ? `${Sep}${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
-      : IsUpper<Prev> extends true
-        ? IsUpper<PrevPrev> extends true
-          ? IsLower<FirstChar<R>> extends true
-            ? `${Sep}${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
-            : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
-          : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
-        : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
-    : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
-  : S;
+  ? SeparatorScan<
+      R,
+      Sep,
+      C,
+      Prev,
+      `${Acc}${NeedsSeparator<C, Prev, PrevPrev, FirstChar<R>> extends true
+        ? Sep
+        : ''}${Lowercase<C>}`
+    >
+  : Acc;
 
 type SeparatorCase<S extends string, Sep extends string> = SeparatorScan<
   S,
-  Sep,
-  '',
-  ''
+  Sep
 >;
 
 /**
@@ -257,19 +278,106 @@ type ForbiddenEndChars =
   | '/'
   | `${number}`;
 
+/**
+ * The character set the runtime is willing to transform. Any key containing a
+ * character outside it — a symbol, or a non-ASCII letter like `é` — is preserved
+ * wholesale at runtime (`/[^A-Za-z0-9_-]/`), so the type must preserve it too.
+ * An explicit ASCII set is required because TS's `Uppercase`/`Lowercase` are
+ * Unicode-aware and would otherwise treat `é` as an ordinary transformable letter.
+ */
+type AllowedKeyChar =
+  | 'a'
+  | 'b'
+  | 'c'
+  | 'd'
+  | 'e'
+  | 'f'
+  | 'g'
+  | 'h'
+  | 'i'
+  | 'j'
+  | 'k'
+  | 'l'
+  | 'm'
+  | 'n'
+  | 'o'
+  | 'p'
+  | 'q'
+  | 'r'
+  | 's'
+  | 't'
+  | 'u'
+  | 'v'
+  | 'w'
+  | 'x'
+  | 'y'
+  | 'z'
+  | 'A'
+  | 'B'
+  | 'C'
+  | 'D'
+  | 'E'
+  | 'F'
+  | 'G'
+  | 'H'
+  | 'I'
+  | 'J'
+  | 'K'
+  | 'L'
+  | 'M'
+  | 'N'
+  | 'O'
+  | 'P'
+  | 'Q'
+  | 'R'
+  | 'S'
+  | 'T'
+  | 'U'
+  | 'V'
+  | 'W'
+  | 'X'
+  | 'Y'
+  | 'Z'
+  | '0'
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | '7'
+  | '8'
+  | '9'
+  | '_'
+  | '-';
+
+/**
+ * True if `S` contains any character outside `AllowedKeyChar`. Mirrors the runtime's
+ * `/[^A-Za-z0-9_-]/` preserve check.
+ */
+type HasOutOfCharsetChar<S extends string> = S extends `${infer C}${infer R}`
+  ? C extends AllowedKeyChar
+    ? HasOutOfCharsetChar<R>
+    : true
+  : false;
+
 type PreservedKey<K extends string> =
-  // Starts with a forbidden character or ends with a forbidden character (allowing numbers at the end)
-  K extends `${infer First}${string}`
-    ? First extends ForbiddenStartChars
-      ? true
-      : K extends `${string}${infer Last}`
-        ? Last extends ForbiddenEndChars
-          ? true
-          : K extends `${string}__${string}` | `${string}--${string}`
+  // Out-of-charset characters (symbols, non-ASCII letters) -> preserved wholesale,
+  // matching the runtime. The remaining branches handle leading forbidden chars and
+  // consecutive `__`/`--` separators.
+  HasOutOfCharsetChar<K> extends true
+    ? true
+    : K extends `${infer First}${string}`
+      ? First extends ForbiddenStartChars
+        ? true
+        : K extends `${string}${infer Last}`
+          ? Last extends ForbiddenEndChars
             ? true
-            : false
-        : false
-    : false;
+            : K extends `${string}__${string}` | `${string}--${string}`
+              ? true
+              : false
+          : false
+      : false;
 
 /**
  * Type utility that selects the correct string transformation based on source and target casing

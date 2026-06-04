@@ -177,6 +177,14 @@ set, so `result.get_http_response` is known at compile time.
 
 > **TypeScript inference:** precise output types are produced only when both `sourceCase` and `targetCase` are passed. Without both, the call still works at runtime (auto-detecting each key) but the result type is `unknown`.
 
+> **`sourceCase` is a type-level assertion, not a runtime switch.** At runtime every
+> key's case is auto-detected regardless of `sourceCase`, so the precise types are
+> accurate only for keys genuinely well-formed in the declared source case. Ambiguous
+> keys — mixed case (`mixed_Case`), `SCREAMING_SNAKE`, or mixed separators (`a_b-c`) — are
+> **preserved unchanged at runtime**, even though the type may show them transformed. Set
+> `sourceCase` only when your keys really are that case. (Out-of-charset keys such as
+> `café_table` or `a.b_c` are preserved at both layers.)
+
 ---
 
 ## Advanced: explicit output type overload

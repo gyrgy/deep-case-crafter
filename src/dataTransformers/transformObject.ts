@@ -1,4 +1,5 @@
 import transformCase from '../transform/transformCase';
+import setKey from '../utils/setKey';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 import { TransformObjectReturn } from '../types/transformTypes';
 
@@ -9,14 +10,9 @@ import { TransformObjectReturn } from '../types/transformTypes';
  * @returns A new object with transformed keys
  *
  * @remarks
- * - Only string keys will be transformed; numeric keys and Symbol keys remain unchanged
- * - When sourceCase is specified:
- *   - TypeScript provides precise property type information
- *   - Transformation is more efficient (bypasses runtime detection)
- * - When sourceCase is not specified:
- *   - Automatic case detection is used for each key
- *   - Return type is Record<string, unknown> for type safety
- * - The preserveSpecialCharacters option retains special characters at the beginning and end of keys
+ * - Only string keys are transformed; numeric keys and Symbol keys remain unchanged
+ * - `sourceCase` is a type-level hint only; at runtime every key's case is auto-detected
+ *   regardless. With it the return type is precise; without it it is Record<string, unknown>.
  *
  * @internal This function is for internal use by the library
  */
@@ -45,7 +41,7 @@ export default function transformObject<
             sourceCase,
           });
 
-      result[transformedKey] = (obj as Record<string, unknown>)[key];
+      setKey(result, transformedKey, (obj as Record<string, unknown>)[key]);
     }
   }
 

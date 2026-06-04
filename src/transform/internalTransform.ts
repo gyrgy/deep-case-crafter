@@ -2,6 +2,7 @@ import transformArray from '../dataTransformers/transformArray';
 import transformMap from '../dataTransformers/transformMap';
 import transformObject from '../dataTransformers/transformObject';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
+import setKey from '../utils/setKey';
 
 /**
  * Recursively transforms data structures (objects, arrays, Maps) by changing their keys/property names
@@ -116,11 +117,15 @@ export default function internalTransform(
     for (const key in transformedObj) {
       const value = transformedObj[key];
       if (value !== null && typeof value === 'object') {
-        transformedObj[key] = internalTransform(
-          value,
-          recursiveOptions,
-          visitedRefs,
-          currentDepth + 1,
+        setKey(
+          transformedObj,
+          key,
+          internalTransform(
+            value,
+            recursiveOptions,
+            visitedRefs,
+            currentDepth + 1,
+          ),
         );
       }
     }

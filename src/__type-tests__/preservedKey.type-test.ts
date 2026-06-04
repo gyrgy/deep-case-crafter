@@ -38,3 +38,12 @@ export type _leadingUnderscore = Expect<
   Equal<SnakeToCamelKey<'_private'>, '_private'>
 >;
 export type _doubleUnderscore = Expect<Equal<SnakeToCamelKey<'a__b'>, 'a__b'>>;
+
+// Out-of-charset keys (symbols / non-ASCII letters) are preserved, matching runtime.
+export type _unicode = Expect<
+  Equal<SnakeToCamelKey<'café_table'>, 'café_table'>
+>;
+export type _symbolDot = Expect<Equal<SnakeToCamelKey<'a.b_c'>, 'a.b_c'>>;
+export type _symbolDollar = Expect<
+  Equal<SnakeToCamelKey<'foo$bar_baz'>, 'foo$bar_baz'>
+>;

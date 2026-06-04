@@ -292,4 +292,29 @@ describe('transform (recursive)', () => {
 
     expect(typedResult).toEqual({ userId: 1, firstName: 'John' });
   });
+
+  it('should preserve a __proto__ key without dropping it or polluting the prototype', () => {
+    const input: Record<string, unknown> = { real_key: 2 };
+    // define via descriptor so the input itself has a genuine own __proto__ key
+    Object.defineProperty(input, '__proto__', {
+      value: 1,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+
+    const result = transform(input, {
+      sourceCase: 'snake',
+      targetCase: 'camel',
+    }) as Record<string, unknown>;
+
+    expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(
+      true,
+    );
+    expect(result['__proto__']).toBe(1);
+    expect(result.realKey).toBe(2);
+    // the result's prototype must be untouched, and Object.prototype unpolluted
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
 });

@@ -60,10 +60,12 @@
     "prepare": "husky",
     "test": "jest",
     "test-coverage": "npm test -- --coverage",
+    "test:types": "tsc --noEmit",
     "tsc": "tsc --noEmit",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src/ --fix --max-warnings=0 --no-cache",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,md}\"",
-    "benchmark": "tsx benchmark/*.benchmark.ts"
+    "benchmark": "tsx benchmark/*.benchmark.ts",
+    "check": "npm run lint && npm run test:types && npm run test-coverage && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -11,28 +11,25 @@ export interface TransformOptions {
   targetCase?: StringCase;
 
   /**
-   * The source casing format to transform from
+   * The source casing format.
    *
-   * When specified:
-   * - Provides precise TypeScript type transformations
-   * - Bypasses runtime case detection (more efficient)
-   * - Ensures consistent results if input has mixed casing
+   * This is a **type-level assertion only**, used (together with `targetCase`) to
+   * produce precise output types. It does **not** change runtime behavior: at runtime
+   * every key's case is auto-detected individually whether or not `sourceCase` is set.
    *
-   * When omitted:
-   * - Automatic case detection is used at runtime
-   * - TypeScript types will be less precise (string keys)
-   * - Works with mixed case inputs (each key detected separately)
+   * Because of that, the precise types are accurate only for keys that are genuinely
+   * well-formed in the declared source case. For ambiguous keys — mixed case
+   * (`mixed_Case`), SCREAMING_SNAKE (`FOO_BAR`), mixed separators (`a_b-c`), or
+   * non-ASCII (`café_table`) — the runtime preserves the key unchanged, while the type
+   * may show it transformed. Set `sourceCase` only when your keys really are that case.
+   *
+   * When omitted, the result type is `unknown` (the runtime still auto-detects each key).
    *
    * @example
-   * // With source specified - precise types
+   * // Precise types when both are set and keys are well-formed snake_case:
    * const result = transform(data, { targetCase: 'camel', sourceCase: 'snake' });
-   * // result has exact transformed types
    *
-   * // Without source - flexible runtime behavior
-   * const result = transform(data, { targetCase: 'camel' });
-   * // TypeScript types are more general
-   *
-   * @default undefined (automatic detection)
+   * @default undefined
    */
   sourceCase?: StringCase;
 }

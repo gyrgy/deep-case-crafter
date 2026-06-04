@@ -57,3 +57,12 @@ export type _digits = Expect<
 export type _pascalRun = Expect<
   Equal<PascalToSnakeKey<'HelloABCWorldDEFTest'>, 'hello_abc_world_def_test'>
 >;
+
+// Long keys must compile (the tail-recursive scanner handles ~1000 chars; the
+// earlier nested form hit TS2589 around ~55). This 62-char key is the guard.
+export type _longKey = Expect<
+  Equal<
+    CamelToSnakeKey<'fetchUserProfileDataFromTheRemoteAPIEndpointThenCacheItLocally'>,
+    'fetch_user_profile_data_from_the_remote_api_endpoint_then_cache_it_locally'
+  >
+>;
