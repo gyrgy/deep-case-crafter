@@ -9,8 +9,10 @@ describe('camelToSnakeCase', () => {
     expect(camelToSnakeCase('helloWorldAgain')).toBe('hello_world_again');
   });
 
-  it('should handle consecutive capital letters', () => {
-    expect(camelToSnakeCase('getHTTPResponse')).toBe('get_h_t_t_p_response');
+  it('should treat acronyms as whole words', () => {
+    expect(camelToSnakeCase('getHTTPResponse')).toBe('get_http_response');
+    expect(camelToSnakeCase('userID')).toBe('user_id');
+    expect(camelToSnakeCase('parseHTMLString')).toBe('parse_html_string');
   });
 
   it('should handle camelCase strings with numbers', () => {

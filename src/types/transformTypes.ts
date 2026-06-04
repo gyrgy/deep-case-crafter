@@ -38,14 +38,53 @@ export type SnakeToKebab<S extends string> = S extends `${infer P}_${infer R}`
   : S;
 
 /**
- * Type utility that transforms a camelCase string to snake_case
- * Example: 'helloWorld' -> 'hello_world'
+ * Acronym-aware word-boundary scanner shared by all camel/pascal → snake/kebab
+ * conversions. Mirrors `utils/stringFormatters/toSeparatedCase.ts` exactly so the
+ * type-level and runtime results never diverge.
+ *
+ * Inserts `Sep` before an uppercase char when the previous char is a lowercase
+ * letter or digit, or when it ends an acronym run that starts a new word (the two
+ * preceding chars are uppercase and the next is lowercase). All output is lowercased.
  */
-export type CamelToSnake<S extends string> = S extends `${infer C}${infer R}`
-  ? C extends Uppercase<C>
-    ? `_${Lowercase<C>}${CamelToSnake<R>}`
-    : `${C}${CamelToSnake<R>}`
+type IsUpper<C extends string> =
+  C extends Uppercase<C> ? (C extends Lowercase<C> ? false : true) : false;
+type IsLower<C extends string> =
+  C extends Lowercase<C> ? (C extends Uppercase<C> ? false : true) : false;
+type IsLowerOrDigit<C extends string> =
+  IsLower<C> extends true ? true : C extends `${number}` ? true : false;
+type FirstChar<S extends string> = S extends `${infer F}${string}` ? F : '';
+
+type SeparatorScan<
+  S extends string,
+  Sep extends string,
+  Prev extends string,
+  PrevPrev extends string,
+> = S extends `${infer C}${infer R}`
+  ? IsUpper<C> extends true
+    ? IsLowerOrDigit<Prev> extends true
+      ? `${Sep}${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
+      : IsUpper<Prev> extends true
+        ? IsUpper<PrevPrev> extends true
+          ? IsLower<FirstChar<R>> extends true
+            ? `${Sep}${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
+            : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
+          : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
+        : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
+    : `${Lowercase<C>}${SeparatorScan<R, Sep, C, Prev>}`
   : S;
+
+type SeparatorCase<S extends string, Sep extends string> = SeparatorScan<
+  S,
+  Sep,
+  '',
+  ''
+>;
+
+/**
+ * Type utility that transforms a camelCase string to snake_case (acronym-aware)
+ * Example: 'helloWorld' -> 'hello_world', 'getHTTPResponse' -> 'get_http_response'
+ */
+export type CamelToSnake<S extends string> = SeparatorCase<S, '_'>;
 
 /**
  * Type utility that transforms a camelCase string to PascalCase
@@ -54,14 +93,10 @@ export type CamelToSnake<S extends string> = S extends `${infer C}${infer R}`
 export type CamelToPascal<S extends string> = Capitalize<S>;
 
 /**
- * Type utility that transforms a camelCase string to kebab-case
- * Example: 'helloWorld' -> 'hello-world'
+ * Type utility that transforms a camelCase string to kebab-case (acronym-aware)
+ * Example: 'helloWorld' -> 'hello-world', 'getHTTPResponse' -> 'get-http-response'
  */
-export type CamelToKebab<S extends string> = S extends `${infer C}${infer R}`
-  ? C extends Uppercase<C>
-    ? `-${Lowercase<C>}${CamelToKebab<R>}`
-    : `${C}${CamelToKebab<R>}`
-  : S;
+export type CamelToKebab<S extends string> = SeparatorCase<S, '-'>;
 
 /**
  * Type utility that transforms a PascalCase string to camelCase
@@ -72,36 +107,16 @@ export type PascalToCamel<S extends string> = S extends `${infer F}${infer R}`
   : S;
 
 /**
- * Type utility that transforms a PascalCase string to snake_case
- * Example: 'HelloWorld' -> 'hello_world'
+ * Type utility that transforms a PascalCase string to snake_case (acronym-aware)
+ * Example: 'HelloWorld' -> 'hello_world', 'HTTPResponse' -> 'http_response'
  */
-export type PascalToSnake<S extends string> = S extends `${infer F}${infer R}`
-  ? R extends ``
-    ? Lowercase<F>
-    : `${Lowercase<F>}${PascalToSnakeInner<R>}`
-  : S;
-
-type PascalToSnakeInner<S extends string> = S extends `${infer C}${infer R}`
-  ? C extends Uppercase<C>
-    ? `_${Lowercase<C>}${PascalToSnakeInner<R>}`
-    : `${C}${PascalToSnakeInner<R>}`
-  : S;
+export type PascalToSnake<S extends string> = SeparatorCase<S, '_'>;
 
 /**
- * Type utility that transforms a PascalCase string to kebab-case
- * Example: 'HelloWorld' -> 'hello-world'
+ * Type utility that transforms a PascalCase string to kebab-case (acronym-aware)
+ * Example: 'HelloWorld' -> 'hello-world', 'HTTPResponse' -> 'http-response'
  */
-export type PascalToKebab<S extends string> = S extends `${infer F}${infer R}`
-  ? R extends ``
-    ? Lowercase<F>
-    : `${Lowercase<F>}${PascalToKebabInner<R>}`
-  : S;
-
-type PascalToKebabInner<S extends string> = S extends `${infer C}${infer R}`
-  ? C extends Uppercase<C>
-    ? `-${Lowercase<C>}${PascalToKebabInner<R>}`
-    : `${C}${PascalToKebabInner<R>}`
-  : S;
+export type PascalToKebab<S extends string> = SeparatorCase<S, '-'>;
 
 /**
  * Type utility that transforms a kebab-case string to camelCase

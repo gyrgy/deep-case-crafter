@@ -13,8 +13,9 @@
 ## Features
 
 - Converts keys to `camelCase`, `PascalCase`, `snake_case`, and `kebab-case`.
+- **Acronym-aware**: `HTTPResponse` → `http_response`, `userID` → `user_id` — not `h_t_t_p_...`.
 - Works with deeply nested structures, including objects, arrays, Maps, and Sets.
-- Precise TypeScript inference when `sourceCase` and `targetCase` are set (otherwise the result type is widened).
+- Precise TypeScript inference when `sourceCase` and `targetCase` are set (otherwise the result is `unknown`).
 - Preserves special keys (`__`, `--`, leading numbers, special characters).
 - Configurable recursion depth (default: fully recursive).
 
@@ -142,6 +143,25 @@ const strings = new Set(['user_id', 'first_name']);
 console.log(transform(strings, { targetCase: 'camel', sourceCase: 'snake' }));
 // Set { 'user_id', 'first_name' }
 ```
+
+---
+
+## Acronym-aware conversion
+
+When converting **to** `snake_case` or `kebab-case`, runs of capitals (acronyms)
+are treated as whole words instead of being split letter-by-letter:
+
+```typescript
+const input = { getHTTPResponse: 1, userID: 2, parseHTMLString: 3 };
+const result = transform(input, { sourceCase: 'camel', targetCase: 'snake' });
+
+console.log(result);
+// Output: { get_http_response: 1, user_id: 2, parse_html_string: 3 }
+//   (not  { get_h_t_t_p_response, user_i_d, ... })
+```
+
+The output **types** match this exactly when `sourceCase` and `targetCase` are
+set, so `result.get_http_response` is known at compile time.
 
 ---
 
