@@ -17,14 +17,38 @@ const generateNestedObject = (
 
 const deepObject = generateNestedObject(5, 10); // 5 levels deep, 10 keys at each level
 
-// Benchmark transform with different depths
+const smallObject = {
+  user_id: 1,
+  first_name: 'a',
+  is_active: true,
+  created_at: 'x',
+  updated_at: 'y',
+};
+
+const wideObject: Record<string, number> = {};
+for (let i = 0; i < 50; i++) wideObject[`field_name_${i}`] = i;
+
+const arrayOfObjects = Array.from({ length: 50 }, (_, i) => ({
+  post_id: i,
+  post_title: 't',
+  author_name: 'n',
+}));
+
+const opts = { targetCase: 'camel', sourceCase: 'snake' } as const;
+
+// Benchmark a spread of realistic input shapes
 suite
-  .add('Transform Deep Object (Depth 5, Width 10)', () => {
-    transform(deepObject, {
-      targetCase: 'camel',
-      sourceCase: 'snake',
-      depth: Infinity,
-    });
+  .add('Deep object (depth 5, width 10)', () => {
+    transform(deepObject, opts);
+  })
+  .add('Small flat object (5 keys)', () => {
+    transform(smallObject, opts);
+  })
+  .add('Wide flat object (50 keys)', () => {
+    transform(wideObject, opts);
+  })
+  .add('Array of 50 objects', () => {
+    transform(arrayOfObjects, opts);
   })
   .on('cycle', (event: Benchmark.Event) => {
     // eslint-disable-next-line no-console

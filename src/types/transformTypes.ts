@@ -556,21 +556,6 @@ export type TransformArray<
 > = Array<TransformObject<T, From, To>>;
 
 /**
- * Helper type to determine array return type based on options
- */
-export type TransformArrayReturn<T extends unknown[], O> = O extends {
-  sourceCase: StringCase;
-}
-  ? {
-      [K in keyof T]: T[K] extends object
-        ? TransformObjectKeys<T[K], O>
-        : T[K] extends Map<infer KT, infer VT>
-          ? Map<KT extends string ? string : KT, VT>
-          : T[K];
-    }
-  : unknown[];
-
-/**
  * Recursive type transformations
  * These types handle nested structures like arrays, objects, Maps, and Sets
  */

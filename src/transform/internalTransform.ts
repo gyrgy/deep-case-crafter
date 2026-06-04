@@ -40,11 +40,11 @@ export default function internalTransform(
     return data;
   }
 
-  // Create options for recursive calls
-  const recursiveOptions = {
-    ...options,
-    depth: maxDepth,
-  };
+  // Options for recursive calls. `depth` is constant for the whole call, so once
+  // `options` already carries it (always true via the public `transform`, and after the
+  // first node otherwise) we reuse the same object instead of re-spreading it per node.
+  const recursiveOptions =
+    options.depth === maxDepth ? options : { ...options, depth: maxDepth };
 
   // Reaching this point guarantees `currentDepth < maxDepth` (we returned
   // early above otherwise), so recursion into children is always performed
@@ -53,15 +53,15 @@ export default function internalTransform(
 
   // Apply the appropriate transformer based on the data type
   if (Array.isArray(data)) {
-    // Transform array
-    result = transformArray(data, options);
-
-    // Track the result first so circular references resolve to it.
-    visitedRefs.set(data, result);
-
-    // Recursively transform array items that are objects or arrays
-    result = (result as unknown[]).map((item) =>
-      internalTransform(item, recursiveOptions, visitedRefs, currentDepth + 1),
+    // An array is a collection, not a nesting level of its own, so each item is
+    // recursed at the current depth (one pass — `transformArray` no longer
+    // re-implements the type dispatch). `register` records the result before items
+    // are processed so a self-referencing array resolves to it.
+    result = transformArray(
+      data,
+      (out) => visitedRefs.set(data, out),
+      (item) =>
+        internalTransform(item, recursiveOptions, visitedRefs, currentDepth),
     );
   } else if (data instanceof Map) {
     // Transform Map keys

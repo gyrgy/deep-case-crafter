@@ -21,6 +21,37 @@ describe('internalTransform', () => {
     expect(result).toEqual([{ keyValue: 'value' }]);
   });
 
+  it('should dispatch each array item by type (objects, Maps, Sets, primitives, nested arrays)', () => {
+    const input = [
+      { user_id: 1 },
+      new Map<string, number>([['user_id', 2]]),
+      new Set(['user_id', 'first_name']),
+      'str',
+      123,
+      null,
+      [{ a_b: 3 }],
+    ];
+    const result = internalTransform(input, options) as unknown[];
+
+    expect(result[0]).toEqual({ userId: 1 });
+    expect((result[1] as Map<string, number>).get('userId')).toBe(2);
+    // Sets are copied and their primitive members left unchanged
+    expect(result[2]).toBeInstanceOf(Set);
+    expect([...(result[2] as Set<string>)]).toEqual(['user_id', 'first_name']);
+    expect(result[3]).toBe('str');
+    expect(result[4]).toBe(123);
+    expect(result[5]).toBeNull();
+    expect(result[6]).toEqual([{ aB: 3 }]);
+  });
+
+  it('should handle a self-referencing array without infinite recursion', () => {
+    const arr: unknown[] = [{ key_value: 'v' }];
+    arr.push(arr);
+    const result = internalTransform(arr, options) as unknown[];
+    expect(result[0]).toEqual({ keyValue: 'v' });
+    expect(result[1]).toBe(result); // circular ref resolves to the result array
+  });
+
   it('should handle maps and recursively transform values', () => {
     const map = new Map([['key_value', { nested_key: 'value' }]]);
     const result = internalTransform(map, options);
