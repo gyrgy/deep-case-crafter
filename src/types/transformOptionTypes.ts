@@ -1,4 +1,4 @@
-import { StringCase } from './stringCaseTypes';
+import { PlainCase, StringCase } from './stringCaseTypes';
 
 /**
  * Options for the transform function
@@ -8,37 +8,66 @@ export interface TransformOptions {
    * The target casing format to transform to
    * @default 'camel'
    */
-  targetCase?: StringCase;
+  targetCase?: StringCase | undefined;
 
   /**
-   * The source casing format.
+   * How many nesting levels to transform: `1` transforms only the top-level keys, `2`
+   * also the keys one level down, and so on. The values of objects, Maps and Sets are one
+   * level deeper; array items stay on their array's level. Deeper values are returned
+   * as they are.
    *
-   * This is a **type-level assertion only**, used (together with `targetCase`) to
-   * produce precise output types. It does **not** change runtime behavior: at runtime
-   * every key's case is auto-detected individually whether or not `sourceCase` is set.
+   * Pass a numeric literal to get a precise result type. A depth that is only known to be
+   * a `number` (a variable, or `Infinity`) gives an `unknown` result type; omit `depth`
+   * to transform every level.
    *
-   * Because of that, the precise types are accurate only for keys that are genuinely
-   * well-formed in the declared source case. For ambiguous keys — mixed case
-   * (`mixed_Case`), SCREAMING_SNAKE (`FOO_BAR`), mixed separators (`a_b-c`), or
-   * non-ASCII (`café_table`) — the runtime preserves the key unchanged, while the type
-   * may show it transformed. Set `sourceCase` only when your keys really are that case.
-   *
-   * When omitted, the result type is `unknown` (the runtime still auto-detects each key).
-   *
-   * @example
-   * // Precise types when both are set and keys are well-formed snake_case:
-   * const result = transform(data, { targetCase: 'camel', sourceCase: 'snake' });
-   *
-   * @default undefined
+   * @default Infinity
    */
-  sourceCase?: StringCase;
+  depth?: number | undefined;
+
+  /**
+   * @deprecated Has no effect. Every key's case is detected from the key itself, both at
+   * runtime and in the result type, so there is nothing to declare.
+   */
+  sourceCase?: StringCase | undefined;
 }
 
 /**
  * Internal options for transformation (used within the package).
- * Ensures required fields are set after defaults are applied.
+ * Both fields are resolved by `transform` before the recursion starts.
  */
-export type TransformOptionsInternal = Required<
-  Pick<TransformOptions, 'targetCase'>
-> &
-  Omit<TransformOptions, 'targetCase'>;
+export interface TransformOptionsInternal {
+  /** The target casing format to transform to */
+  targetCase: StringCase;
+
+  /** How many nesting levels to transform (`Infinity` for all of them) */
+  depth: number;
+}
+
+/**
+ * Rejects option names `transform` does not know. The options object is inferred as a
+ * whole, so without this an object literal would accept any extra property, typos such
+ * as `depht` included. The error names the unknown option.
+ */
+export type NoUnknownOptions<Options> = {
+  [K in Exclude<keyof Options, keyof TransformOptions>]: `Unknown option: ${K &
+    string}`;
+};
+
+/** `To` as a plain case literal, or `'camel'` (the default) for `undefined` */
+type CaseOrDefault<To> = To extends undefined ? 'camel' : PlainCase<To>;
+
+/**
+ * The target case the runtime uses for one options object: `'camel'` when `targetCase`
+ * is omitted or `undefined`.
+ */
+export type TargetCaseOf<Options> = 'targetCase' extends keyof Options
+  ? CaseOrDefault<Options['targetCase']>
+  : 'camel';
+
+/**
+ * The depth the runtime uses for one options object: `undefined` (every level) when
+ * `depth` is omitted.
+ */
+export type DepthOf<Options> = 'depth' extends keyof Options
+  ? Options['depth']
+  : undefined;

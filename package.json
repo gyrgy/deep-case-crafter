@@ -1,6 +1,6 @@
 {
   "name": "deep-case-crafter",
-  "version": "2.1.1",
+  "version": "3.0.0",
   "description": "Transforms deeply nested object, array, Map, and Set keys between common case formats while preserving TypeScript type safety",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -62,10 +62,13 @@
     "test-coverage": "npm test -- --coverage",
     "test:types": "tsc --noEmit",
     "tsc": "tsc --noEmit",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/ --fix --max-warnings=0 --no-cache",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,md}\"",
+    "test:dist-types": "tsc -p dist-type-tests && tsc -p dist-type-tests/tsconfig.declarations.json && tsc -p dist-type-tests/tsconfig.loose.json",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/ --max-warnings=0 --no-cache",
+    "lint:fix": "eslint --ext .js,.jsx,.ts,.tsx src/ --fix --max-warnings=0 --no-cache",
+    "format": "prettier --write src dist-type-tests benchmark .github readme.md",
+    "format:check": "prettier --check src dist-type-tests benchmark .github readme.md",
     "benchmark": "tsx benchmark/*.benchmark.ts",
-    "check": "npm run lint && npm run test:types && npm run test-coverage && npm run build"
+    "check": "npm run lint && npm run format:check && npm run test:types && npm run test-coverage && npm run build && npm run test:dist-types"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

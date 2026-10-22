@@ -6,6 +6,17 @@ describe('isPascalCase', () => {
     expect(isPascalCase('HelloWorld123')).toBe(true);
   });
 
+  it('should accept acronyms next to lowercase letters', () => {
+    expect(isPascalCase('HTTPResponse')).toBe(true);
+    expect(isPascalCase('URLs')).toBe(true);
+  });
+
+  it('should return false for words written only in capitals', () => {
+    expect(isPascalCase('ID')).toBe(false);
+    expect(isPascalCase('USD')).toBe(false);
+    expect(isPascalCase('B2B')).toBe(false);
+  });
+
   it('should return false for non-Pascal strings', () => {
     expect(isPascalCase('helloWorld')).toBe(false);
     expect(isPascalCase('Hello_World')).toBe(false);

@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import transform from './transform';
 
 describe('transform (recursive)', () => {
@@ -293,6 +294,130 @@ describe('transform (recursive)', () => {
     expect(typedResult).toEqual({ userId: 1, firstName: 'John' });
   });
 
+  it('should reject unsupported target cases from plain JavaScript callers', () => {
+    for (const targetCase of [
+      'title',
+      'toString',
+      '__proto__',
+      'constructor',
+    ]) {
+      expect(() =>
+        transform({ user_id: 1 }, { targetCase: targetCase as 'camel' }),
+      ).toThrow(
+        new TypeError(
+          `Unsupported targetCase "${targetCase}". Use one of: camel, snake, pascal, kebab.`,
+        ),
+      );
+    }
+  });
+
+  it('should default to camelCase for an empty targetCase from plain JavaScript callers', () => {
+    for (const targetCase of ['', null, undefined]) {
+      expect(
+        transform(
+          { user_id: 1 },
+          { targetCase: targetCase as unknown as 'camel' },
+        ),
+      ).toEqual({ userId: 1 });
+    }
+  });
+
+  it('should reject a depth that is not a number', () => {
+    const cases = [
+      [NaN, 'NaN'],
+      ['3', '"3"'],
+      ['Infinity', '"Infinity"'],
+      [{}, '[object Object]'],
+    ] as const;
+    for (const [depth, description] of cases) {
+      expect(() =>
+        transform({ user_id: 1 }, { depth: depth as unknown as number }),
+      ).toThrow(
+        new TypeError(
+          `Unsupported depth ${description}. Use a number, or omit depth to transform every level.`,
+        ),
+      );
+    }
+  });
+
+  it('should treat a null depth like an omitted one', () => {
+    expect(
+      transform({ a_b: { c_d: 1 } }, { depth: null as unknown as number }),
+    ).toEqual({ aB: { cD: 1 } });
+  });
+
+  describe('depth levels', () => {
+    it('should transform nothing with depth 0', () => {
+      const input = { user_id: 1 };
+      expect(transform(input, { depth: 0 })).toBe(input);
+    });
+
+    it('should keep array items on the level of their array', () => {
+      expect(
+        transform([{ user_id: 1, user_info: { first_name: 'x' } }], {
+          depth: 1,
+        }),
+      ).toEqual([{ userId: 1, userInfo: { first_name: 'x' } }]);
+      expect(
+        transform({ user_list: [[{ user_id: 1 }]] }, { depth: 2 }),
+      ).toEqual({ userList: [[{ userId: 1 }]] });
+    });
+
+    it('should put the values of Maps and Sets one level deeper', () => {
+      const map = new Map([['user_info', { first_name: 'x' }]]);
+      const set = new Set([{ first_name: 'x' }]);
+      expect(transform(map, { depth: 1 })).toEqual(
+        new Map([['userInfo', { first_name: 'x' }]]),
+      );
+      expect(transform(set, { depth: 1 })).toEqual(
+        new Set([{ first_name: 'x' }]),
+      );
+      expect(transform(set, { depth: 2 })).toEqual(
+        new Set([{ firstName: 'x' }]),
+      );
+    });
+  });
+
+  it('should keep Dates intact when building an API payload', () => {
+    const input = {
+      userId: 1,
+      createdAt: new Date('2024-01-02T03:04:05Z'),
+    };
+
+    const result = transform(input, { targetCase: 'snake' });
+
+    expect(JSON.stringify(result)).toBe(
+      '{"user_id":1,"created_at":"2024-01-02T03:04:05.000Z"}',
+    );
+  });
+
+  it('should convert class instances to plain objects with transformed keys', () => {
+    class User {
+      user_id = 1;
+      first_name = 'John';
+    }
+
+    const result = transform(new User(), { targetCase: 'camel' });
+
+    expect(result).toEqual({ userId: 1, firstName: 'John' });
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+  });
+
+  it('should transform a Map and a Set from another realm', () => {
+    const foreignMap = runInNewContext(
+      "new Map([['user_id', { first_name: 1 }]])",
+    );
+    const foreignSet = runInNewContext('new Set([{ first_name: 1 }])');
+
+    const result = transform(
+      { the_map: foreignMap, the_set: foreignSet },
+      { targetCase: 'camel' },
+    ) as { theMap: Map<string, unknown>; theSet: Set<unknown> };
+
+    expect(result.theMap.get('userId')).toEqual({ firstName: 1 });
+    expect([...result.theSet]).toEqual([{ firstName: 1 }]);
+  });
+
   it('should preserve a __proto__ key without dropping it or polluting the prototype', () => {
     const input: Record<string, unknown> = { real_key: 2 };
     // define via descriptor so the input itself has a genuine own __proto__ key
@@ -316,5 +441,33 @@ describe('transform (recursive)', () => {
     // the result's prototype must be untouched, and Object.prototype unpolluted
     expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it('should leave data keys written only in capitals unchanged', () => {
+    const input = {
+      exchange_rates: { USD: 1, EUR: 0.9 },
+      route_map: { GET: '/users', POST: '/users' },
+    };
+    expect(transform(input, { targetCase: 'kebab' })).toEqual({
+      'exchange-rates': { USD: 1, EUR: 0.9 },
+      'route-map': { GET: '/users', POST: '/users' },
+    });
+  });
+
+  it('should round-trip camelCase keys through PascalCase', () => {
+    const input = { xAxis: 1, eTag: 2, iPhone: 3, httpResponse: 4 };
+    const pascal = transform(input, { targetCase: 'pascal' });
+    expect(pascal).toEqual({ XAxis: 1, ETag: 2, IPhone: 3, HttpResponse: 4 });
+    expect(transform(pascal, { targetCase: 'camel' })).toEqual(input);
+  });
+
+  it('should keep a plural s with an acronym, also before a two-letter word', () => {
+    expect(
+      transform({ allowedURLs: 1, APIsList: 2 }, { targetCase: 'snake' }),
+    ).toEqual({ allowed_urls: 1, apis_list: 2 });
+    // Ambiguous, and kept as a plural: 'Is' cannot be told apart from 'APIs'
+    expect(transform({ SSLIsEnabled: 1 }, { targetCase: 'snake' })).toEqual({
+      sslis_enabled: 1,
+    });
   });
 });

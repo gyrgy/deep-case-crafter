@@ -11,6 +11,7 @@ describe('detectStringCase', () => {
 
   it('should detect pascal case', () => {
     expect(detectStringCase('HelloWorld')).toBe('pascal');
+    expect(detectStringCase('HTTPResponse')).toBe('pascal');
   });
 
   it('should detect kebab case', () => {
@@ -37,6 +38,9 @@ describe('detectStringCase', () => {
     // For example, a string that mixes delimiters or cases unexpectedly:
     expect(detectStringCase('Hello_world')).toBeNull();
     expect(detectStringCase('helloWorld-123')).toBeNull();
+    // Words written only in capitals are not in one recognisable case either
+    expect(detectStringCase('ID')).toBeNull();
+    expect(detectStringCase('B2B')).toBeNull();
     // Also, any string that doesn't meet the criteria for snake, camel, pascal, or kebab.
   });
 });

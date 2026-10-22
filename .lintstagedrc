@@ -1,4 +1,4 @@
 {
   "*.{js,jsx,ts,tsx}": "eslint --fix --max-warnings=0 --no-cache",
-  "*.{json,md}": "prettier --write"
+  "*.{json,md,mts,cts,yaml,yml}": "prettier --write"
 }

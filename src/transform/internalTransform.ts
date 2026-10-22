@@ -1,15 +1,22 @@
-import transformArray from '../dataTransformers/transformArray';
-import transformMap from '../dataTransformers/transformMap';
-import transformObject from '../dataTransformers/transformObject';
+import { OBJECT_TAG } from '../constants/objectTag';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
+import getObjectTag from '../utils/getObjectTag';
+import isMap from '../utils/isMap';
+import isSet from '../utils/isSet';
 import setKey from '../utils/setKey';
+import transformCase from './transformCase';
+import transformKey from './transformKey';
 
 /**
- * Recursively transforms data structures (objects, arrays, Maps) by changing their keys/property names
+ * Recursively transforms data structures (objects, arrays, Maps, Sets) by changing their keys/property names
  *
- * @param data - The data to transform (object, array, Map)
+ * Plain objects are transformed here (one stack frame per nesting level); arrays, Maps
+ * and Sets go through small helper loops that call back into this function directly (two
+ * frames per level). No callbacks or closures are created per node.
+ *
+ * @param data - The data to transform (object, array, Map, Set)
  * @param options - Transformation options
- * @param visitedRefs - Used internally to track circular references
+ * @param visitedRefs - Used internally to track circular and shared references, per level
  * @param currentDepth - Used internally to track current recursion depth
  * @returns The transformed data
  *
@@ -17,119 +24,130 @@ import setKey from '../utils/setKey';
  */
 export default function internalTransform(
   data: unknown,
-  options: TransformOptionsInternal & { depth?: number },
-  visitedRefs: WeakMap<object, unknown> = new WeakMap(),
+  options: TransformOptionsInternal,
+  visitedRefs: WeakMap<object, unknown>[] = [],
   currentDepth: number = 0,
 ): unknown {
-  // Handle primitive values
-  if (data === null || data === undefined || typeof data !== 'object') {
+  // Handle primitive values (and functions)
+  if (data === null || typeof data !== 'object') {
     return data;
   }
 
-  // Handle circular references
-  if (visitedRefs.has(data as object)) {
-    return visitedRefs.get(data as object);
-  }
-
-  // Get max depth (default to unlimited recursion if not specified).
-  // Circular references are still handled via `visitedRefs`, so Infinity is safe.
-  const maxDepth = options.depth ?? Infinity;
-
-  // Stop recursion if maximum depth is reached
-  if (currentDepth >= maxDepth) {
+  // Stop recursion if maximum depth is reached. This comes first, so an object that is
+  // also referenced from a shallower level is still returned as it is here.
+  if (currentDepth >= options.depth) {
     return data;
   }
 
-  // Options for recursive calls. `depth` is constant for the whole call, so once
-  // `options` already carries it (always true via the public `transform`, and after the
-  // first node otherwise) we reuse the same object instead of re-spreading it per node.
-  const recursiveOptions =
-    options.depth === maxDepth ? options : { ...options, depth: maxDepth };
+  // Handle circular and shared references. With a depth limit, an object's result
+  // depends on the level it is reached at, so every level has its own map.
+  const level = options.depth === Infinity ? 0 : currentDepth;
+  const visited = (visitedRefs[level] ??= new WeakMap());
+  if (visited.has(data)) {
+    return visited.get(data);
+  }
 
-  // Reaching this point guarantees `currentDepth < maxDepth` (we returned
-  // early above otherwise), so recursion into children is always performed
-  // here; the recursive call's own depth guard stops it at the boundary.
-  let result: unknown;
+  // Every node records its (still empty) result before its children are transformed, so
+  // a circular reference back to it resolves to that result.
 
-  // Apply the appropriate transformer based on the data type
+  // An array is a collection, not a nesting level of its own: its items stay on its level
   if (Array.isArray(data)) {
-    // An array is a collection, not a nesting level of its own, so each item is
-    // recursed at the current depth (one pass — `transformArray` no longer
-    // re-implements the type dispatch). `register` records the result before items
-    // are processed so a self-referencing array resolves to it.
-    result = transformArray(
-      data,
-      (out) => visitedRefs.set(data, out),
-      (item) =>
-        internalTransform(item, recursiveOptions, visitedRefs, currentDepth),
-    );
-  } else if (data instanceof Map) {
-    // Transform Map keys
-    result = transformMap(data, options);
-    visitedRefs.set(data, result);
-
-    // Recursively transform Map values that are objects or arrays
-    const transformedMap = result as Map<unknown, unknown>;
-    for (const [key, value] of transformedMap.entries()) {
-      if (value !== null && typeof value === 'object') {
-        transformedMap.set(
-          key,
-          internalTransform(
-            value,
-            recursiveOptions,
-            visitedRefs,
-            currentDepth + 1,
-          ),
-        );
-      }
-    }
-  } else if (data instanceof Set) {
-    // Don't transform Set values, just create a new Set
-    result = new Set(data);
-    visitedRefs.set(data, result);
-
-    // But recursively transform Set items that are objects or arrays
-    const transformedSet = result as Set<unknown>;
-    const originalValues = Array.from(transformedSet);
-    transformedSet.clear();
-
-    for (const value of originalValues) {
-      if (value !== null && typeof value === 'object') {
-        transformedSet.add(
-          internalTransform(
-            value,
-            recursiveOptions,
-            visitedRefs,
-            currentDepth + 1,
-          ),
-        );
-      } else {
-        transformedSet.add(value);
-      }
-    }
-  } else {
-    // Transform plain object
-    result = transformObject(data as Record<string, unknown>, options);
-    visitedRefs.set(data, result);
-
-    // Recursively transform nested objects
-    const transformedObj = result as Record<string, unknown>;
-    for (const key in transformedObj) {
-      const value = transformedObj[key];
-      if (value !== null && typeof value === 'object') {
-        setKey(
-          transformedObj,
-          key,
-          internalTransform(
-            value,
-            recursiveOptions,
-            visitedRefs,
-            currentDepth + 1,
-          ),
-        );
-      }
-    }
+    const result: unknown[] = [];
+    visited.set(data, result);
+    transformItems(data, result, options, visitedRefs, currentDepth);
+    return result;
   }
 
-  return result;
+  // The values of Maps, Sets and objects sit one nesting level deeper
+  const nextDepth = currentDepth + 1;
+  const tag = getObjectTag(data);
+
+  if (isMap(data, tag)) {
+    const result = new Map<unknown, unknown>();
+    visited.set(data, result);
+    transformEntries(data, result, options, visitedRefs, nextDepth);
+    return result;
+  }
+
+  if (isSet(data, tag)) {
+    const result = new Set<unknown>();
+    visited.set(data, result);
+    transformMembers(data, result, options, visitedRefs, nextDepth);
+    return result;
+  }
+
+  // Ordinary key/value objects: plain objects, Object.create(null) objects and class
+  // instances
+  if (tag === OBJECT_TAG) {
+    const source = data as Record<PropertyKey, unknown>;
+    const result: Record<PropertyKey, unknown> = {};
+    visited.set(data, result);
+
+    // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped)
+    for (const key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        setKey(
+          result,
+          transformKey(key, options.targetCase),
+          internalTransform(source[key], options, visitedRefs, nextDepth),
+        );
+      }
+    }
+
+    // Symbol-keyed properties are copied across unchanged
+    for (const sym of Object.getOwnPropertySymbols(source)) {
+      result[sym] = source[sym];
+    }
+
+    return result;
+  }
+
+  // Date, RegExp, Error, URL, typed arrays and other built-ins keep their state
+  // in internal slots, not in keys: return them untouched.
+  return data;
+}
+
+// The collection loops are separate functions, not closures, and call internalTransform
+// directly: plain objects, the most common node, are transformed inside internalTransform,
+// which keeps its stack frame small, and a nested collection takes two small frames.
+
+function transformItems(
+  source: readonly unknown[],
+  result: unknown[],
+  options: TransformOptionsInternal,
+  visitedRefs: WeakMap<object, unknown>[],
+  depth: number,
+): void {
+  for (const item of source) {
+    result.push(internalTransform(item, options, visitedRefs, depth));
+  }
+}
+
+function transformEntries(
+  source: ReadonlyMap<unknown, unknown>,
+  result: Map<unknown, unknown>,
+  options: TransformOptionsInternal,
+  visitedRefs: WeakMap<object, unknown>[],
+  depth: number,
+): void {
+  for (const [key, value] of source) {
+    // Only string keys have a case. They are converted without the key cache: a Map key
+    // can be a slice of a much larger string, which a cache entry would keep alive.
+    result.set(
+      typeof key === 'string' ? transformCase(key, options.targetCase) : key,
+      internalTransform(value, options, visitedRefs, depth),
+    );
+  }
+}
+
+function transformMembers(
+  source: ReadonlySet<unknown>,
+  result: Set<unknown>,
+  options: TransformOptionsInternal,
+  visitedRefs: WeakMap<object, unknown>[],
+  depth: number,
+): void {
+  for (const value of source) {
+    result.add(internalTransform(value, options, visitedRefs, depth));
+  }
 }

@@ -4,13 +4,18 @@ import {
 } from '../../constants/regex';
 
 /**
- * Checks if a string is in PascalCase format
+ * Checks if a string is in PascalCase format.
+ * A word written only in capitals (`ID`, `USD`, `GET`) is not: like a SCREAMING_SNAKE
+ * key, it is not in one recognisable case, so it is left unchanged.
+ *
  * @param str - The string to check
  * @returns boolean indicating if the string is in PascalCase
  *
  * @example
  * ```typescript
  * isPascalCase('HelloWorld') // => true
+ * isPascalCase('HTTPResponse') // => true
+ * isPascalCase('ID') // => false
  * isPascalCase('helloWorld') // => false
  * ```
  *

@@ -28,10 +28,34 @@ jobs:
         # `npm install` has pruned of other platforms' optional deps (npm/cli#4828).
         run: npm install --no-audit --no-fund
 
-      - name: Build Package
-        run: npm run build
+      - name: Check Tag Matches Package Version
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $VERSION"
+            exit 1
+          fi
+
+      - name: Run All Checks
+        # Lint, formatting, types, tests with coverage, build and the published types
+        run: npm run check
+
+      - name: Check Published Types with TypeScript 4.7
+        # The oldest TypeScript version the published declarations support
+        run: |
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.loose.json
+
+      - name: Check Published Types with TypeScript 7
+        # The native compiler, newer than the TypeScript 6 the project builds with
+        run: |
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.loose.json
 
       - name: Publish to npm
-        run: npm publish --access public
+        # --provenance links the published package to this workflow run and commit
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

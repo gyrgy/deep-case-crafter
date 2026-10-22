@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // A project of its own: tsc only checks declaration output when there are no
+    // other errors, so errors elsewhere would hide a failure here. The declarations
+    // are really emitted (into a cache folder), because TypeScript before 5.5 skips
+    // declaration checks with noEmit.
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": ".",
+    "outDir": "../node_modules/.cache/dist-type-tests"
+  },
+  "files": ["declarations.mts"]
+}

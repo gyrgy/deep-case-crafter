@@ -13,8 +13,10 @@ module.exports = {
     '<rootDir>/src/constants/',
     '<rootDir>/src/index.ts',
     '<rootDir>/src/__type-tests__/',
+    '<rootDir>/src/__test-utils__/',
   ],
   coverageDirectory: './coverage',
+  coverageReporters: ['clover', 'json', 'lcov', 'text', 'text-summary'],
   collectCoverageFrom: ['src/**/*.{js,jsx,ts,tsx}'],
   coverageThreshold: {
     global: {

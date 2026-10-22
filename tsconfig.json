@@ -16,5 +16,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true
-  }
+  },
+  "exclude": ["node_modules", "dist", "dist-type-tests"]
 }
