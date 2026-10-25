@@ -37,6 +37,7 @@ export default [
         exclude: [
           '**/__tests__/**',
           '**/__type-tests__/**',
+          '**/__test-utils__/**',
           '**/*.test.ts',
           '**/benchmark/**',
         ],

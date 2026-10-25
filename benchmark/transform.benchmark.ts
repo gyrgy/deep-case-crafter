@@ -34,7 +34,23 @@ const arrayOfObjects = Array.from({ length: 50 }, (_, i) => ({
   author_name: 'n',
 }));
 
-const opts = { targetCase: 'camel', sourceCase: 'snake' } as const;
+// A typical API list response: many records repeating the same keys
+const apiList = Array.from({ length: 1000 }, (_, i) => ({
+  user_id: i,
+  first_name: 'a',
+  last_name: 'b',
+  email_address: 'e',
+  is_active: true,
+  created_at: 'x',
+  updated_at: 'y',
+  avatar_url: 'u',
+  phone_number: 'p',
+  postal_code: 'c',
+  home_address: { street_name: 's', house_number: 1, city_name: 'c' },
+  role_ids: [1, 2],
+}));
+
+const opts = { targetCase: 'camel' } as const;
 
 // Benchmark a spread of realistic input shapes
 suite
@@ -49,6 +65,9 @@ suite
   })
   .add('Array of 50 objects', () => {
     transform(arrayOfObjects, opts);
+  })
+  .add('API list (1000 records, 12 keys and a nested address each)', () => {
+    transform(apiList, opts);
   })
   .on('cycle', (event: Benchmark.Event) => {
     // eslint-disable-next-line no-console

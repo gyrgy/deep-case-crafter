@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "types": [],
+    "target": "es2020",
+    "lib": ["es2020"],
+    "module": "node16",
+    "moduleResolution": "node16"
+  },
+  "files": ["esm.mts", "cjs.cts", "options.mts"]
+}

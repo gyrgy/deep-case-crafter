@@ -17,11 +17,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Fetch Base Branch
-        run: git fetch --no-tags --depth=50 origin ${{ github.event.pull_request.base.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -37,6 +32,9 @@ jobs:
       - name: Perform Lint Check
         run: npm run lint
 
+      - name: Check Formatting
+        run: npm run format:check
+
       - name: Check TypeScript Types
         run: npm run tsc
 
@@ -49,5 +47,22 @@ jobs:
           name: coverage-report
           path: coverage
 
-      - name: Display Test Coverage Summary
-        run: npx jest --coverage --coverageReporters=text-summary
+      - name: Build Package
+        run: npm run build
+
+      - name: Check Published Types
+        run: npm run test:dist-types
+
+      - name: Check Published Types with TypeScript 4.7
+        # The oldest TypeScript version the published declarations support
+        run: |
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.loose.json
+
+      - name: Check Published Types with TypeScript 7
+        # The native compiler, newer than the TypeScript 6 the project builds with
+        run: |
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.loose.json

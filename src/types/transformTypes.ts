@@ -1,799 +1,232 @@
-import { Expand } from './helperTypes';
-import { StringCase } from './stringCaseTypes';
-import { TransformOptions } from './transformOptionTypes';
-/**
- * Type utility that transforms a snake_case string to camelCase
- * Example: 'hello_world' -> 'helloWorld'
- */
-export type SnakeToCamel<S extends string> =
-  S extends `${infer P}_${infer C}${infer R}`
-    ? `${P}${Uppercase<C>}${SnakeToCamel<R>}`
-    : S;
+import { IsAny } from './helperTypes';
+import { TransformKey } from './keyTypes';
+import { PlainCase, StringCase } from './stringCaseTypes';
+import { DepthOf, TargetCaseOf } from './transformOptionTypes';
+
+/** Primitive values, including branded ones such as `string & { __brand: 'UserId' }` */
+type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 
 /**
- * Type utility that transforms a snake_case string to PascalCase
- * Example: 'hello_world' -> 'HelloWorld'
- */
-type SnakeWordsToPascal<Parts extends string[]> = Parts extends [
-  infer First extends string,
-  ...infer Rest extends string[],
-]
-  ? `${Capitalize<First>}${SnakeWordsToPascal<Rest>}`
-  : '';
-
-type SnakeToWords<S extends string> = S extends `${infer P}_${infer R}`
-  ? [P, ...SnakeToWords<R>]
-  : [S];
-
-export type SnakeToPascal<S extends string> = S extends `${infer P}_${infer R}`
-  ? SnakeWordsToPascal<[P, ...SnakeToWords<R>]>
-  : Capitalize<S>;
-
-/**
- * Type utility that transforms a snake_case string to kebab-case
- * Example: 'hello_world' -> 'hello-world'
- */
-export type SnakeToKebab<S extends string> = S extends `${infer P}_${infer R}`
-  ? `${P}-${SnakeToKebab<R>}`
-  : S;
-
-/**
- * Acronym-aware word-boundary scanner shared by all camel/pascal → snake/kebab
- * conversions. Mirrors `utils/stringFormatters/toSeparatedCase.ts` exactly so the
- * type-level and runtime results never diverge.
+ * Values the runtime returns untouched that TypeScript can recognise: functions and
+ * classes, `Date`, `RegExp`, and built-ins that declare a `Symbol.toStringTag` (typed
+ * arrays, `ArrayBuffer`, `DataView`, `Promise`, `WeakMap`, `WeakSet`, ...).
  *
- * Inserts `Sep` before an uppercase char when the previous char is a lowercase
- * letter or digit, or when it ends an acronym run that starts a new word (the two
- * preceding chars are uppercase and the next is lowercase). All output is lowercased.
+ * `Error`, `URL` and other host objects are returned untouched as well, but their types
+ * cannot be told apart from plain objects (an `Error` is any `{ name, message }`).
  */
-type IsUpper<C extends string> =
-  C extends Uppercase<C> ? (C extends Lowercase<C> ? false : true) : false;
-type IsLower<C extends string> =
-  C extends Lowercase<C> ? (C extends Uppercase<C> ? false : true) : false;
-type IsLowerOrDigit<C extends string> =
-  IsLower<C> extends true ? true : C extends `${number}` ? true : false;
-type FirstChar<S extends string> = S extends `${infer F}${string}` ? F : '';
+type UntouchedValue =
+  // The global Function type covers every function, class and value typed as Function
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  Function | Date | RegExp | { readonly [Symbol.toStringTag]: string };
 
 /**
- * Whether an uppercase `C` at the current position begins a new word (so a
- * separator goes before it): true when the previous char is lower/digit, or when
- * `C` ends an acronym run (two preceding uppercase chars) followed by a lowercase.
+ * `true` once `Level` (the nesting level so far, as a tuple) reaches `Depth`.
+ * `Depth` is `undefined` when every level is transformed. The `undefined` check comes
+ * first and is not distributive, so it also holds without `strictNullChecks`; comparing
+ * `Depth extends Level['length']` also accepts a branded depth such as `1 & Brand`.
  */
-type NeedsSeparator<
-  C extends string,
-  Prev extends string,
-  PrevPrev extends string,
-  Next extends string,
-> =
-  IsUpper<C> extends true
-    ? IsLowerOrDigit<Prev> extends true
-      ? true
-      : IsUpper<Prev> extends true
-        ? IsUpper<PrevPrev> extends true
-          ? IsLower<Next>
-          : false
-        : false
+type IsDepthReached<
+  Depth extends number | undefined,
+  Level extends unknown[],
+> = [Depth] extends [undefined]
+  ? false
+  : Depth extends Level['length']
+    ? true
     : false;
 
-// Tail-recursive accumulator form: TS eliminates the tail call, so this handles
-// long keys (~1000 chars) instead of hitting the instantiation-depth limit around
-// ~55 chars that the nested form did.
-type SeparatorScan<
-  S extends string,
-  Sep extends string,
-  Prev extends string = '',
-  PrevPrev extends string = '',
-  Acc extends string = '',
-> = S extends `${infer C}${infer R}`
-  ? SeparatorScan<
-      R,
-      Sep,
-      C,
-      Prev,
-      `${Acc}${NeedsSeparator<C, Prev, PrevPrev, FirstChar<R>> extends true
-        ? Sep
-        : ''}${Lowercase<C>}`
-    >
-  : Acc;
-
-type SeparatorCase<S extends string, Sep extends string> = SeparatorScan<
-  S,
-  Sep
->;
+/**
+ * The nesting level of the values of an object, Map or Set. With unlimited depth the
+ * level stays `[]`, so recursive data types reuse the same instantiation.
+ */
+type NextLevel<Depth extends number | undefined, Level extends unknown[]> = [
+  Depth,
+] extends [undefined]
+  ? Level
+  : [...Level, unknown];
 
 /**
- * Type utility that transforms a camelCase string to snake_case (acronym-aware)
- * Example: 'helloWorld' -> 'hello_world', 'getHTTPResponse' -> 'get_http_response'
+ * Transforms `T` the way `internalTransform` does: arrays keep their nesting level,
+ * while the values of objects, Maps and Sets are one level deeper.
+ *
+ * Arrays are typed as arrays of transformed items, which lets TypeScript defer
+ * recursive types such as a JSON value type; only tuples are mapped position by position.
+ *
+ * Use `TransformResult` instead. This type is exported only so that declaration files
+ * can refer to it: the result of a generic wrapper around `transform` is written in terms
+ * of it, and an unexported recursive type would have to be expanded there without end.
  */
-export type CamelToSnake<S extends string> = SeparatorCase<S, '_'>;
+export type TransformValue<
+  T,
+  To extends StringCase,
+  Depth extends number | undefined,
+  Level extends unknown[],
+> =
+  IsAny<T> extends true
+    ? T
+    : IsDepthReached<Depth, Level> extends true
+      ? T
+      : T extends Primitive
+        ? T
+        : T extends readonly (infer Item)[]
+          ? number extends T['length']
+            ? T extends unknown[]
+              ? TransformValue<Item, To, Depth, Level>[]
+              : readonly TransformValue<Item, To, Depth, Level>[]
+            : { [I in keyof T]: TransformValue<T[I], To, Depth, Level> }
+          : T extends ReadonlyMap<infer K, infer V>
+            ? Map<
+                K extends string ? TransformKey<K, To> : K,
+                TransformValue<V, To, Depth, NextLevel<Depth, Level>>
+              >
+            : T extends ReadonlySet<infer V>
+              ? Set<TransformValue<V, To, Depth, NextLevel<Depth, Level>>>
+              : T extends UntouchedValue
+                ? T
+                : T extends object
+                  ? {
+                      [K in keyof T as K extends string
+                        ? TransformKey<K, To>
+                        : K]: K extends symbol
+                        ? T[K] // symbol-keyed values are copied unchanged
+                        : TransformValue<
+                            T[K],
+                            To,
+                            Depth,
+                            NextLevel<Depth, Level>
+                          >;
+                    }
+                  : T;
 
 /**
- * Type utility that transforms a camelCase string to PascalCase
- * Example: 'helloWorld' -> 'HelloWorld'
+ * Applies a numeric literal `Depth`: a negative depth transforms nothing, and a
+ * fractional depth is not supported precisely, so its result is `unknown`.
  */
-export type CamelToPascal<S extends string> = Capitalize<S>;
+type TransformWithDepth<
+  T,
+  To extends StringCase,
+  Depth extends number,
+> = `${Depth}` extends `-${string}`
+  ? T
+  : `${Depth}` extends `${string}${'.' | 'e'}${string}`
+    ? unknown
+    : TransformValue<T, To, Depth, []>;
 
 /**
- * Type utility that transforms a camelCase string to kebab-case (acronym-aware)
- * Example: 'helloWorld' -> 'hello-world', 'getHTTPResponse' -> 'get-http-response'
+ * `true` for a numeric literal, branded or not (`2`, `2 & Brand`), and `false` for
+ * `number` and a branded `number`: a literal shares no value with at least one of two
+ * different literals, while `number` shares one with both.
  */
-export type CamelToKebab<S extends string> = SeparatorCase<S, '-'>;
+type IsNumberLiteral<N extends number> = [N & 0] extends [never]
+  ? true
+  : [N & 1] extends [never]
+    ? true
+    : false;
 
 /**
- * Type utility that transforms a PascalCase string to camelCase
- * Example: 'HelloWorld' -> 'helloWorld'
+ * The result for one `Depth` (distributes over a union of depths): every level for
+ * `undefined`, `unknown` for a depth that is only known to be a `number`.
  */
-export type PascalToCamel<S extends string> = S extends `${infer F}${infer R}`
-  ? `${Lowercase<F>}${R}`
-  : S;
+type TransformToDepth<
+  T,
+  To extends StringCase,
+  Depth extends number | undefined,
+> = Depth extends unknown
+  ? [Depth] extends [undefined]
+    ? TransformValue<T, To, undefined, []>
+    : IsNumberLiteral<Depth & number> extends true
+      ? TransformWithDepth<T, To, Depth & number>
+      : unknown
+  : never;
 
 /**
- * Type utility that transforms a PascalCase string to snake_case (acronym-aware)
- * Example: 'HelloWorld' -> 'hello_world', 'HTTPResponse' -> 'http_response'
+ * The exact type `transform` returns for `data` of type `T`, transformed to `To` (default
+ * `'camel'`) for `Depth` nesting levels (default: all of them).
+ *
+ * `To` and `Depth` distribute over unions: when they are only known to be one of several
+ * values, the result is the union of the possible results. A depth that is not a numeric
+ * literal (`number`, including `Infinity`) cannot be known, so the result is `unknown`,
+ * as it is for a `To` or `Depth` typed `any`. String enum members and branded literals
+ * are accepted for `To`.
+ *
+ * @example
+ * ```typescript
+ * type User = TransformResult<{ user_id: number; created_at: Date }>;
+ * // => { userId: number; createdAt: Date }
+ * ```
  */
-export type PascalToSnake<S extends string> = SeparatorCase<S, '_'>;
+export type TransformResult<
+  T,
+  To extends StringCase = 'camel',
+  Depth extends number | undefined = undefined,
+> =
+  IsAny<To> extends true
+    ? unknown
+    : IsAny<Depth> extends true
+      ? unknown
+      : To extends unknown
+        ? TransformToDepth<T, PlainCase<To>, Depth>
+        : never;
 
-/**
- * Type utility that transforms a PascalCase string to kebab-case (acronym-aware)
- * Example: 'HelloWorld' -> 'hello-world', 'HTTPResponse' -> 'http-response'
- */
-export type PascalToKebab<S extends string> = SeparatorCase<S, '-'>;
-
-/**
- * Type utility that transforms a kebab-case string to camelCase
- * Example: 'hello-world' -> 'helloWorld'
- */
-export type KebabToCamel<S extends string> =
-  S extends `${infer P}-${infer C}${infer R}`
-    ? `${P}${Uppercase<C>}${KebabToCamel<R>}`
-    : S;
-
-/**
- * Type utility that transforms a kebab-case string to PascalCase
- * Example: 'hello-world' -> 'HelloWorld'
- */
-type KebabWordsToPascal<Parts extends string[]> = Parts extends [
-  infer First extends string,
-  ...infer Rest extends string[],
-]
-  ? `${Capitalize<First>}${KebabWordsToPascal<Rest>}`
-  : '';
-
-type KebabToWords<S extends string> = S extends `${infer P}-${infer R}`
-  ? [P, ...KebabToWords<R>]
-  : [S];
-
-/**
- * Type utility that transforms a kebab-case string to PascalCase
- * Example: 'hello-world' -> 'HelloWorld'
- */
-export type KebabToPascal<S extends string> = S extends `${infer P}-${infer R}`
-  ? KebabWordsToPascal<[P, ...KebabToWords<R>]>
-  : Capitalize<S>;
-
-/**
- * Type utility that transforms a kebab-case string to snake_case
- * Example: 'hello-world' -> 'hello_world'
- */
-export type KebabToSnake<S extends string> = S extends `${infer P}-${infer R}`
-  ? `${P}_${KebabToSnake<R>}`
-  : S;
-
-// /**
-//  * Utility type to detect preserved keys that shouldn't be transformed.
-//  * Preserved keys include those with leading/trailing special characters,
-//  * unsupported patterns, or invalid starting/ending characters.
-//  */
-// type ForbiddenStartChars = '_' | '-' | '$' | '&' | '%' | '#';
-// type ForbiddenEndChars = '_' | '-' | '$' | '&' | '%' | '#';
-
-// type PreservedKey<K extends string> =
-//   // Starts with a forbidden character or ends with a forbidden character (allowing numbers at the end)
-//   K extends `${infer First}${string}`
-//     ? First extends ForbiddenStartChars
-//       ? true
-//       : K extends `${string}${infer Last}`
-//         ? Last extends ForbiddenEndChars | `${number}`
-//           ? true
-//           : K extends `${string}__${string}` | `${string}--${string}`
-//             ? true
-//             : false
-//         : false
-//     : false;
-
-/**
- * Utility type to detect preserved keys that shouldn't be transformed.
- * Preserved keys include those with leading/trailing special characters,
- * unsupported patterns, or invalid starting/ending characters.
- */
-type ForbiddenStartChars =
-  | '_'
-  | '-'
-  | '$'
-  | '&'
-  | '%'
-  | '#'
-  | '@'
-  | '!'
-  | '*'
-  | '+'
-  | '='
-  | '~'
-  | '`'
-  | '^'
-  | '('
-  | ')'
-  | '['
-  | ']'
-  | '{'
-  | '}'
-  | '|'
-  | '\\'
-  | ':'
-  | ';'
-  | '"'
-  | "'"
-  | '<'
-  | '>'
-  | ','
-  | '.'
-  | '?'
-  | '/'
-  // A leading digit is preserved at runtime (keys must start with a letter),
-  // so the type must preserve it too. A single digit char extends `${number}`.
-  | `${number}`;
-
-type ForbiddenEndChars =
-  | '_'
-  | '-'
-  | '$'
-  | '&'
-  | '%'
-  | '#'
-  | '@'
-  | '!'
-  | '*'
-  | '+'
-  | '='
-  | '~'
-  | '`'
-  | '^'
-  | '('
-  | ')'
-  | '['
-  | ']'
-  | '{'
-  | '}'
-  | '|'
-  | '\\'
-  | ':'
-  | ';'
-  | '"'
-  | "'"
-  | '<'
-  | '>'
-  | ','
-  | '.'
-  | '?'
-  | '/'
-  | `${number}`;
-
-/**
- * The character set the runtime is willing to transform. Any key containing a
- * character outside it — a symbol, or a non-ASCII letter like `é` — is preserved
- * wholesale at runtime (`/[^A-Za-z0-9_-]/`), so the type must preserve it too.
- * An explicit ASCII set is required because TS's `Uppercase`/`Lowercase` are
- * Unicode-aware and would otherwise treat `é` as an ordinary transformable letter.
- */
-type AllowedKeyChar =
-  | 'a'
-  | 'b'
-  | 'c'
-  | 'd'
-  | 'e'
-  | 'f'
-  | 'g'
-  | 'h'
-  | 'i'
-  | 'j'
-  | 'k'
-  | 'l'
-  | 'm'
-  | 'n'
-  | 'o'
-  | 'p'
-  | 'q'
-  | 'r'
-  | 's'
-  | 't'
-  | 'u'
-  | 'v'
-  | 'w'
-  | 'x'
-  | 'y'
-  | 'z'
-  | 'A'
-  | 'B'
-  | 'C'
-  | 'D'
-  | 'E'
-  | 'F'
-  | 'G'
-  | 'H'
-  | 'I'
-  | 'J'
-  | 'K'
-  | 'L'
-  | 'M'
-  | 'N'
-  | 'O'
-  | 'P'
-  | 'Q'
-  | 'R'
-  | 'S'
-  | 'T'
-  | 'U'
-  | 'V'
-  | 'W'
-  | 'X'
-  | 'Y'
-  | 'Z'
-  | '0'
-  | '1'
-  | '2'
-  | '3'
-  | '4'
-  | '5'
-  | '6'
-  | '7'
-  | '8'
-  | '9'
-  | '_'
-  | '-';
-
-/**
- * True if `S` contains any character outside `AllowedKeyChar`. Mirrors the runtime's
- * `/[^A-Za-z0-9_-]/` preserve check.
- */
-type HasOutOfCharsetChar<S extends string> = S extends `${infer C}${infer R}`
-  ? C extends AllowedKeyChar
-    ? HasOutOfCharsetChar<R>
-    : true
+/** `true` when `Options` may omit `Key` (an optional property) */
+type IsOptional<Options, Key extends PropertyKey> = Key extends keyof Options
+  ? Record<never, never> extends Pick<Options, Key>
+    ? true
+    : false
   : false;
 
-type PreservedKey<K extends string> =
-  // Out-of-charset characters (symbols, non-ASCII letters) -> preserved wholesale,
-  // matching the runtime. The remaining branches handle leading forbidden chars and
-  // consecutive `__`/`--` separators.
-  HasOutOfCharsetChar<K> extends true
-    ? true
-    : K extends `${infer First}${string}`
-      ? First extends ForbiddenStartChars
-        ? true
-        : K extends `${string}${infer Last}`
-          ? Last extends ForbiddenEndChars
-            ? true
-            : K extends `${string}__${string}` | `${string}--${string}`
-              ? true
-              : false
-          : false
-      : false;
+/** `true` when the option `Key` of `Options` is typed `any` */
+type IsAnyOption<Options, Key extends PropertyKey> = Key extends keyof Options
+  ? IsAny<Options[Key]>
+  : false;
 
 /**
- * Type utility that selects the correct string transformation based on source and target casing
+ * Includes `true` when a member of a union of options objects has a `targetCase` typed
+ * `any` (check it with `true extends HasAnyTargetCase<Options>`)
  */
-export type TransformKey<K extends string, O extends TransformOptions> =
-  PreservedKey<K> extends true
-    ? K // Preserve keys that match special patterns
-    : undefined extends O['sourceCase']
-      ? string // When source is not specified, we can't guarantee the exact transformation
-      : O['sourceCase'] extends 'snake'
-        ? undefined extends O['targetCase']
-          ? SnakeToCamel<K> // Default to camelCase when casing is not specified
-          : O['targetCase'] extends 'camel'
-            ? SnakeToCamel<K>
-            : O['targetCase'] extends 'pascal'
-              ? SnakeToPascal<K>
-              : O['targetCase'] extends 'kebab'
-                ? SnakeToKebab<K>
-                : K
-        : O['sourceCase'] extends 'camel'
-          ? undefined extends O['targetCase']
-            ? K // No transformation needed if target is not specified
-            : O['targetCase'] extends 'snake'
-              ? CamelToSnake<K>
-              : O['targetCase'] extends 'pascal'
-                ? CamelToPascal<K>
-                : O['targetCase'] extends 'kebab'
-                  ? CamelToKebab<K>
-                  : K
-          : O['sourceCase'] extends 'pascal'
-            ? undefined extends O['targetCase']
-              ? PascalToCamel<K> // Default to camelCase when casing is not specified
-              : O['targetCase'] extends 'camel'
-                ? PascalToCamel<K>
-                : O['targetCase'] extends 'snake'
-                  ? PascalToSnake<K>
-                  : O['targetCase'] extends 'kebab'
-                    ? PascalToKebab<K>
-                    : K
-            : O['sourceCase'] extends 'kebab'
-              ? undefined extends O['targetCase']
-                ? KebabToCamel<K> // Default to camelCase when casing is not specified
-                : O['targetCase'] extends 'camel'
-                  ? KebabToCamel<K>
-                  : O['targetCase'] extends 'pascal'
-                    ? KebabToPascal<K>
-                    : O['targetCase'] extends 'snake'
-                      ? KebabToSnake<K>
-                      : K
-              : K; // Fallback
+export type HasAnyTargetCase<Options> = Options extends unknown
+  ? IsAnyOption<Options, 'targetCase'>
+  : never;
 
 /**
- * Type utility that transforms all keys in an object from the source case to the target case
+ * The result for one options object. An optional `targetCase` or `depth` may also be
+ * omitted, which uses its default; those results are added explicitly because, without
+ * `strictNullChecks`, `undefined` disappears from the property's type.
  */
-export type TransformObjectKeys<
+type TransformResultForOne<
   T,
-  O extends TransformOptions = { targetCase: 'camel' },
-> = {
-  [K in keyof T as TransformKey<K & string, O>]: T[K];
-};
+  Options,
+  To extends StringCase = TargetCaseOf<Options>,
+  Depth extends number | undefined = DepthOf<Options> extends infer D extends
+    | number
+    | undefined
+    ? D
+    : never,
+> =
+  | TransformResult<T, To, Depth>
+  | (IsOptional<Options, 'targetCase'> extends true
+      ? TransformResult<T, 'camel', Depth>
+      : never)
+  | (IsOptional<Options, 'depth'> extends true
+      ? TransformResult<T, To, undefined>
+      : never)
+  | (IsOptional<Options, 'targetCase'> extends true
+      ? IsOptional<Options, 'depth'> extends true
+        ? TransformResult<T, 'camel', undefined>
+        : never
+      : never);
 
 /**
- * Helper type to determine the return type of transformObject based on options
+ * The result type for an options object. Each member of a union of options objects gives
+ * its own result, so its `targetCase` and `depth` stay paired. Options typed `any`, or
+ * with a `targetCase` or `depth` typed `any`, say nothing about the result: `unknown`.
  */
-export type TransformObjectReturn<T, O> = O extends { sourceCase: StringCase }
-  ? Expand<TransformObjectKeys<T, O>>
-  : Record<string | number | symbol, unknown>;
-
-/**
- * Helper type to determine the return type of transformMap based on options
- */
-export type TransformMapReturn<K, V, O> = O extends { sourceCase: StringCase }
-  ? Map<K extends string ? TransformKey<K & string, O> : K, V>
-  : Map<string | Exclude<K, string>, V>;
-
-/**
- * Object transformation type aliases
- * These provide more readable type names for common transformations
- */
-
-// Snake case object transformations
-export type SnakeToCamelObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'snake'; targetCase: 'camel' }
->;
-export type SnakeToPascalObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'snake'; targetCase: 'pascal' }
->;
-export type SnakeToKebabObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'snake'; targetCase: 'kebab' }
->;
-
-// Camel case object transformations
-export type CamelToSnakeObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'camel'; targetCase: 'snake' }
->;
-export type CamelToPascalObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'camel'; targetCase: 'pascal' }
->;
-export type CamelToKebabObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'camel'; targetCase: 'kebab' }
->;
-
-// Pascal case object transformations
-export type PascalToCamelObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'pascal'; targetCase: 'camel' }
->;
-export type PascalToSnakeObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'pascal'; targetCase: 'snake' }
->;
-export type PascalToKebabObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'pascal'; targetCase: 'kebab' }
->;
-
-// Kebab case object transformations
-export type KebabToCamelObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'kebab'; targetCase: 'camel' }
->;
-export type KebabToPascalObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'kebab'; targetCase: 'pascal' }
->;
-export type KebabToSnakeObject<T> = TransformObjectKeys<
-  T,
-  { sourceCase: 'kebab'; targetCase: 'snake' }
->;
-
-/**
- * Array transformation type aliases
- */
-// Snake case array transformations
-export type SnakeToCamelArray<T> = Array<SnakeToCamelObject<T>>;
-export type SnakeToPascalArray<T> = Array<SnakeToPascalObject<T>>;
-export type SnakeToKebabArray<T> = Array<SnakeToKebabObject<T>>;
-
-// Camel case array transformations
-export type CamelToSnakeArray<T> = Array<CamelToSnakeObject<T>>;
-export type CamelToPascalArray<T> = Array<CamelToPascalObject<T>>;
-export type CamelToKebabArray<T> = Array<CamelToKebabObject<T>>;
-
-// Pascal case array transformations
-export type PascalToCamelArray<T> = Array<PascalToCamelObject<T>>;
-export type PascalToSnakeArray<T> = Array<PascalToSnakeObject<T>>;
-export type PascalToKebabArray<T> = Array<PascalToKebabObject<T>>;
-
-// Kebab case array transformations
-export type KebabToCamelArray<T> = Array<KebabToCamelObject<T>>;
-export type KebabToPascalArray<T> = Array<KebabToPascalObject<T>>;
-export type KebabToSnakeArray<T> = Array<KebabToSnakeObject<T>>;
-
-/**
- * Generic transformation utility for objects
- */
-export type TransformObject<
-  T,
-  From extends StringCase,
-  To extends StringCase,
-> = TransformObjectKeys<T, { sourceCase: From; targetCase: To }>;
-
-/**
- * Generic transformation utility for arrays
- */
-export type TransformArray<
-  T,
-  From extends StringCase,
-  To extends StringCase,
-> = Array<TransformObject<T, From, To>>;
-
-/**
- * Recursive type transformations
- * These types handle nested structures like arrays, objects, Maps, and Sets
- */
-
-// Snake case to other formats (recursive)
-export type SnakeToCamelRecursive<T> =
-  T extends Array<infer U>
-    ? Array<SnakeToCamelRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? SnakeToCamel<K> : K, SnakeToCamelRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<SnakeToCamelRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'snake'; targetCase: 'camel' }
-              >]: SnakeToCamelRecursive<T[K]>;
-            }
-          : T;
-
-export type SnakeToPascalRecursive<T> =
-  T extends Array<infer U>
-    ? Array<SnakeToPascalRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? SnakeToPascal<K> : K, SnakeToPascalRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<SnakeToPascalRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'snake'; targetCase: 'pascal' }
-              >]: SnakeToPascalRecursive<T[K]>;
-            }
-          : T;
-
-export type SnakeToKebabRecursive<T> =
-  T extends Array<infer U>
-    ? Array<SnakeToKebabRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? SnakeToKebab<K> : K, SnakeToKebabRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<SnakeToKebabRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'snake'; targetCase: 'kebab' }
-              >]: SnakeToKebabRecursive<T[K]>;
-            }
-          : T;
-
-// Camel case to other formats (recursive)
-export type CamelToSnakeRecursive<T> =
-  T extends Array<infer U>
-    ? Array<CamelToSnakeRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? CamelToSnake<K> : K, CamelToSnakeRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<CamelToSnakeRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'camel'; targetCase: 'snake' }
-              >]: CamelToSnakeRecursive<T[K]>;
-            }
-          : T;
-
-export type CamelToPascalRecursive<T> =
-  T extends Array<infer U>
-    ? Array<CamelToPascalRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? CamelToPascal<K> : K, CamelToPascalRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<CamelToPascalRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'camel'; targetCase: 'pascal' }
-              >]: CamelToPascalRecursive<T[K]>;
-            }
-          : T;
-
-export type CamelToKebabRecursive<T> =
-  T extends Array<infer U>
-    ? Array<CamelToKebabRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? CamelToKebab<K> : K, CamelToKebabRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<CamelToKebabRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'camel'; targetCase: 'kebab' }
-              >]: CamelToKebabRecursive<T[K]>;
-            }
-          : T;
-
-// Pascal case to other formats (recursive)
-export type PascalToCamelRecursive<T> =
-  T extends Array<infer U>
-    ? Array<PascalToCamelRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? PascalToCamel<K> : K, PascalToCamelRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<PascalToCamelRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'pascal'; targetCase: 'camel' }
-              >]: PascalToCamelRecursive<T[K]>;
-            }
-          : T;
-
-export type PascalToSnakeRecursive<T> =
-  T extends Array<infer U>
-    ? Array<PascalToSnakeRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? PascalToSnake<K> : K, PascalToSnakeRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<PascalToSnakeRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'pascal'; targetCase: 'snake' }
-              >]: PascalToSnakeRecursive<T[K]>;
-            }
-          : T;
-
-export type PascalToKebabRecursive<T> =
-  T extends Array<infer U>
-    ? Array<PascalToKebabRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? PascalToKebab<K> : K, PascalToKebabRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<PascalToKebabRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'pascal'; targetCase: 'kebab' }
-              >]: PascalToKebabRecursive<T[K]>;
-            }
-          : T;
-
-// Kebab case to other formats (recursive)
-export type KebabToCamelRecursive<T> =
-  T extends Array<infer U>
-    ? Array<KebabToCamelRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? KebabToCamel<K> : K, KebabToCamelRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<KebabToCamelRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'kebab'; targetCase: 'camel' }
-              >]: KebabToCamelRecursive<T[K]>;
-            }
-          : T;
-
-export type KebabToPascalRecursive<T> =
-  T extends Array<infer U>
-    ? Array<KebabToPascalRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? KebabToPascal<K> : K, KebabToPascalRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<KebabToPascalRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'kebab'; targetCase: 'pascal' }
-              >]: KebabToPascalRecursive<T[K]>;
-            }
-          : T;
-
-export type KebabToSnakeRecursive<T> =
-  T extends Array<infer U>
-    ? Array<KebabToSnakeRecursive<U>>
-    : T extends Map<infer K, infer V>
-      ? Map<K extends string ? KebabToSnake<K> : K, KebabToSnakeRecursive<V>>
-      : T extends Set<infer V>
-        ? Set<KebabToSnakeRecursive<V>>
-        : T extends object
-          ? {
-              [K in keyof T as TransformKey<
-                K & string,
-                { sourceCase: 'kebab'; targetCase: 'snake' }
-              >]: KebabToSnakeRecursive<T[K]>;
-            }
-          : T;
-
-/**
- * Generic recursive transformation type
- * Allows dynamically selecting the transformation based on source and target cases
- */
-export type TransformRecursive<
-  T,
-  FromCase extends StringCase,
-  ToCase extends StringCase,
-> = FromCase extends 'snake'
-  ? ToCase extends 'camel'
-    ? SnakeToCamelRecursive<T>
-    : ToCase extends 'pascal'
-      ? SnakeToPascalRecursive<T>
-      : ToCase extends 'kebab'
-        ? SnakeToKebabRecursive<T>
-        : T
-  : FromCase extends 'camel'
-    ? ToCase extends 'snake'
-      ? CamelToSnakeRecursive<T>
-      : ToCase extends 'pascal'
-        ? CamelToPascalRecursive<T>
-        : ToCase extends 'kebab'
-          ? CamelToKebabRecursive<T>
-          : T
-    : FromCase extends 'pascal'
-      ? ToCase extends 'snake'
-        ? PascalToSnakeRecursive<T>
-        : ToCase extends 'camel'
-          ? PascalToCamelRecursive<T>
-          : ToCase extends 'kebab'
-            ? PascalToKebabRecursive<T>
-            : T
-      : FromCase extends 'kebab'
-        ? ToCase extends 'snake'
-          ? KebabToSnakeRecursive<T>
-          : ToCase extends 'camel'
-            ? KebabToCamelRecursive<T>
-            : ToCase extends 'pascal'
-              ? KebabToPascalRecursive<T>
-              : T
-        : T;
+export type TransformResultFor<T, Options> =
+  IsAny<Options> extends true
+    ? unknown
+    : Options extends unknown
+      ? IsAnyOption<Options, 'targetCase'> extends true
+        ? unknown
+        : IsAnyOption<Options, 'depth'> extends true
+          ? unknown
+          : TransformResultForOne<T, Options>
+      : never;
