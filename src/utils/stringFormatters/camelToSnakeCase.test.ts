@@ -15,6 +15,13 @@ describe('camelToSnakeCase', () => {
     expect(camelToSnakeCase('parseHTMLString')).toBe('parse_html_string');
   });
 
+  it('should keep a one-letter word apart from the next word', () => {
+    expect(camelToSnakeCase('isAValidUser')).toBe('is_a_valid_user');
+    expect(camelToSnakeCase('hasAPrimaryKey')).toBe('has_a_primary_key');
+    expect(camelToSnakeCase('getAValue')).toBe('get_a_value');
+    expect(camelToSnakeCase('threeDSecure')).toBe('three_d_secure');
+  });
+
   it('should handle camelCase strings with numbers', () => {
     expect(camelToSnakeCase('hello123World')).toBe('hello123_world');
   });

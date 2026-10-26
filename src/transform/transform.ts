@@ -1,3 +1,4 @@
+import { createExcludeState } from './excludePaths';
 import internalTransform from './internalTransform';
 import { STRING_CASES } from '../constants/stringCases';
 import { IsAny } from '../types/helperTypes';
@@ -26,7 +27,7 @@ function transform<T>(data: T, options?: undefined): TransformResult<T>;
 
 /**
  * Transforms the keys of `data` to `targetCase` (default `'camel'`), at every nesting
- * level unless `depth` is set.
+ * level unless `depth` is set, except the keys at the `exclude` paths.
  *
  * Every key of the result type is typed the way the runtime transforms it, except in
  * values TypeScript cannot tell apart from plain objects (see "Result types" in the
@@ -39,6 +40,14 @@ function transform<T>(data: T, options?: undefined): TransformResult<T>;
  * option names. An options object that may itself be `undefined` matches neither this
  * overload nor the one above, and gets an `unknown` result type from the last one.
  *
+ * The constraint of `Options` makes it capture an inline `exclude` array as a tuple of
+ * string literals: `[...Paths]` keeps the strings literal, and `readonly [string?]`
+ * makes TypeScript 4.7 read the array as a tuple, an empty one included; any array of
+ * strings is still accepted, and so is `undefined`: with `exactOptionalPropertyTypes`, an
+ * optional property only accepts it when its type includes it. The parameter type does
+ * not mention `exclude` itself: intersecting the captured tuple with these types would
+ * make every call compare array types member by member.
+ *
  * The type parameter defaults only apply when type arguments are passed explicitly, and
  * give an `unknown` result type. An explicit `any` as the second type argument was the
  * output type before `To` existed, so it still gives `any` (`To` is `any` there, while
@@ -48,7 +57,14 @@ function transform<
   T,
   To extends StringCase | undefined = StringCase | undefined,
   Depth extends number | undefined = number | undefined,
-  Options extends TransformOptions = TransformOptions,
+  Options extends TransformOptions & {
+    exclude?:
+      | readonly [...Paths]
+      | readonly [string?]
+      | readonly string[]
+      | undefined;
+  } = TransformOptions,
+  Paths extends readonly string[] = readonly string[],
 >(
   data: T,
   options: Options & {
@@ -65,11 +81,17 @@ function transform<
  * The 2.x form with explicit `<Data, SourceCase, TargetCase>` type arguments.
  *
  * @deprecated `sourceCase` has no effect: leave out the type arguments and `sourceCase`,
- * and the result type is inferred, `depth` included. This form does not accept `depth`.
+ * and the result type is inferred, `depth` and `exclude` included. This form does not
+ * accept `depth` or `exclude`.
  */
 function transform<T, From extends StringCase, To extends StringCase>(
   data: T,
-  options: { sourceCase: From; targetCase: To; depth?: undefined },
+  options: {
+    sourceCase: From;
+    targetCase: To;
+    depth?: undefined;
+    exclude?: undefined;
+  },
 ): TransformResult<T, To>;
 
 /**
@@ -100,9 +122,18 @@ function transform(data: unknown, options?: TransformOptions): unknown {
     );
   }
 
-  const internalOptions: TransformOptionsInternal = { targetCase, depth };
+  const internalOptions: TransformOptionsInternal = {
+    targetCase,
+    depth,
+    exclude: null,
+  };
+  const exclude = options?.exclude;
+  const excludeState =
+    exclude === undefined ? null : createExcludeState(exclude, internalOptions);
 
-  return internalTransform(data, internalOptions);
+  return excludeState === null
+    ? internalTransform(data, internalOptions)
+    : internalTransform(data, excludeState.options, excludeState.visitedRefs);
 }
 
 export default transform;

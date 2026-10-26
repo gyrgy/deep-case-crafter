@@ -454,11 +454,30 @@ describe('transform (recursive)', () => {
     });
   });
 
+  it('should leave UUID keys unchanged, in objects and Maps', () => {
+    const id = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+    const input = {
+      users_by_id: { [id]: { first_name: 'John' } },
+      sessions_by_user: new Map([[id, { last_seen: 1 }]]),
+    };
+    expect(transform(input, { targetCase: 'pascal' })).toEqual({
+      UsersById: { [id]: { FirstName: 'John' } },
+      SessionsByUser: new Map([[id, { LastSeen: 1 }]]),
+    });
+  });
+
   it('should round-trip camelCase keys through PascalCase', () => {
     const input = { xAxis: 1, eTag: 2, iPhone: 3, httpResponse: 4 };
     const pascal = transform(input, { targetCase: 'pascal' });
     expect(pascal).toEqual({ XAxis: 1, ETag: 2, IPhone: 3, HttpResponse: 4 });
     expect(transform(pascal, { targetCase: 'camel' })).toEqual(input);
+  });
+
+  it('should round-trip camelCase keys with one-letter words through snake_case', () => {
+    const input = { isAValidUser: 1, threeDSecure: 2, xAxis: 3 };
+    const snake = transform(input, { targetCase: 'snake' });
+    expect(snake).toEqual({ is_a_valid_user: 1, three_d_secure: 2, x_axis: 3 });
+    expect(transform(snake, { targetCase: 'camel' })).toEqual(input);
   });
 
   it('should keep a plural s with an acronym, also before a two-letter word', () => {
@@ -468,6 +487,82 @@ describe('transform (recursive)', () => {
     // Ambiguous, and kept as a plural: 'Is' cannot be told apart from 'APIs'
     expect(transform({ SSLIsEnabled: 1 }, { targetCase: 'snake' })).toEqual({
       sslis_enabled: 1,
+    });
+  });
+
+  describe('exclude', () => {
+    it('should leave the keys at the paths unchanged, and transform the values under them', () => {
+      const response = {
+        users_by_id: { abc_1: { first_name: 'Ann' } },
+        metadata: { order_ref: 'A1' },
+      };
+      const result = transform(response, {
+        exclude: ['users_by_id.*', 'metadata.*'],
+      });
+      expect(result).toEqual({
+        usersById: { abc_1: { firstName: 'Ann' } },
+        metadata: { order_ref: 'A1' },
+      });
+      expect(result.usersById.abc_1.firstName).toBe('Ann');
+    });
+
+    it('should apply the paths to the source keys, whatever the target case', () => {
+      const input = { locale_map: { en_gb: { greeting_text: 'Hi' } } };
+      expect(
+        transform(input, {
+          targetCase: 'kebab',
+          exclude: ['locale_map.*'],
+        }),
+      ).toEqual({ 'locale-map': { en_gb: { 'greeting-text': 'Hi' } } });
+      expect(
+        transform(input, { targetCase: 'pascal', exclude: ['*'] }),
+      ).toEqual({ locale_map: { EnGb: { GreetingText: 'Hi' } } });
+    });
+
+    it('should treat an empty or null exclude like an omitted one', () => {
+      expect(transform({ a_b: { c_d: 1 } }, { exclude: [] })).toEqual({
+        aB: { cD: 1 },
+      });
+      expect(
+        transform(
+          { a_b: { c_d: 1 } },
+          { exclude: null as unknown as string[] },
+        ),
+      ).toEqual({ aB: { cD: 1 } });
+    });
+
+    it('should reject an exclude that is not an array of paths', () => {
+      const cases = [
+        ['metadata.*', 'exclude "metadata.*"'],
+        [{}, 'exclude [object Object]'],
+        [[1], 'exclude path 1'],
+        [['metadata..order_ref'], 'exclude path "metadata..order_ref"'],
+        [[''], 'exclude path ""'],
+      ] as const;
+      for (const [exclude, description] of cases) {
+        expect(() =>
+          transform(
+            { user_id: 1 },
+            {
+              exclude: exclude as unknown as string[],
+            },
+          ),
+        ).toThrow(TypeError);
+        expect(() =>
+          transform(
+            { user_id: 1 },
+            {
+              exclude: exclude as unknown as string[],
+            },
+          ),
+        ).toThrow(`Unsupported ${description}. `);
+      }
+    });
+
+    it('should reject an invalid exclude even when there is nothing to transform', () => {
+      expect(() =>
+        transform(1, { exclude: 'metadata.*' as unknown as string[] }),
+      ).toThrow(TypeError);
     });
   });
 });

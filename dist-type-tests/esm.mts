@@ -38,5 +38,47 @@ export type _named = Expect<
   >
 >;
 
-export const options: TransformOptions = { targetCase: 'pascal', depth: 3 };
+// One-letter words are kept apart, and UUID keys are left unchanged
+export type _keyRules = Expect<
+  Equal<
+    TransformResult<
+      { isAValidUser: 1; XAxis: 2; 'f47ac10b-58cc-4372-a567-0e02b2c3d479': 3 },
+      'snake'
+    >,
+    { is_a_valid_user: 1; x_axis: 2; 'f47ac10b-58cc-4372-a567-0e02b2c3d479': 3 }
+  >
+>;
+
+// The keys at the exclude paths keep their names; inline paths are captured as literals
+const _excludeValue = transform(
+  { users_by_id: { u_1: { first_name: 'x' } }, metadata: { order_ref: 'A1' } },
+  { exclude: ['users_by_id.*', 'metadata.*'] },
+);
+export type _exclude = Expect<
+  Equal<
+    typeof _excludeValue,
+    {
+      usersById: { u_1: { firstName: string } };
+      metadata: { order_ref: string };
+    }
+  >
+>;
+
+const _excludeEmptyValue = transform({ user_id: 1 }, { exclude: [] });
+export type _excludeEmpty = Expect<
+  Equal<typeof _excludeEmptyValue, { userId: number }>
+>;
+
+export type _excludeNamed = Expect<
+  Equal<
+    TransformResult<{ tag_map: Map<'a_b', { c_d: 1 }> }, 'kebab', 2, ['*.a_b']>,
+    { 'tag-map': Map<'a_b', { c_d: 1 }> }
+  >
+>;
+
+export const options: TransformOptions = {
+  targetCase: 'pascal',
+  depth: 3,
+  exclude: ['metadata.*'],
+};
 export const targetCase: StringCase = 'camel';

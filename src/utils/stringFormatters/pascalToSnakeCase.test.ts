@@ -13,6 +13,15 @@ describe('pascalToSnakeCase', () => {
     expect(pascalToSnakeCase('HTTPResponse')).toBe('http_response');
   });
 
+  it('should keep a leading one-letter word apart from the next word', () => {
+    expect(pascalToSnakeCase('XAxis')).toBe('x_axis');
+    expect(pascalToSnakeCase('ETag')).toBe('e_tag');
+    expect(pascalToSnakeCase('IPhone')).toBe('i_phone');
+    expect(pascalToSnakeCase('OAuthToken')).toBe('o_auth_token');
+    expect(pascalToSnakeCase('IPv4')).toBe('i_pv4');
+    expect(pascalToSnakeCase('VCpuCount')).toBe('v_cpu_count');
+  });
+
   it('should handle PascalCase strings with numbers', () => {
     expect(pascalToSnakeCase('Hello123World')).toBe('hello123_world');
   });

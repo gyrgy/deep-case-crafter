@@ -36,8 +36,9 @@ export type _pascalToCamelInnerAcronym = Expect<
   Equal<TransformKey<'UserID', 'camel'>, 'userID'>
 >;
 
-// Two capitals before a lowercase letter are a one-letter word when converting to
-// camelCase, unless the letter is a plural s ending the acronym.
+// A capital after a capital and before a lowercase letter starts a word, so a capital
+// before a capitalised word is a one-letter word, in every target case, unless the
+// lowercase letter is a plural s ending the acronym.
 export type _oneLetterWordCamel = Expect<
   Equal<TransformKey<'XAxis', 'camel'>, 'xAxis'>
 >;
@@ -54,10 +55,42 @@ export type _oneLetterWordBeforeS = Expect<
   Equal<TransformKey<'IDsort', 'camel'>, 'iDsort'>
 >;
 export type _oneLetterWordSnake = Expect<
-  Equal<TransformKey<'ETag', 'snake'>, 'etag'>
+  Equal<TransformKey<'ETag', 'snake'>, 'e_tag'>
+>;
+export type _oneLetterWordSnake2 = Expect<
+  Equal<TransformKey<'XAxis', 'snake'>, 'x_axis'>
+>;
+export type _oneLetterWordSnake3 = Expect<
+  Equal<TransformKey<'IPv4', 'snake'>, 'i_pv4'>
+>;
+export type _oneLetterWordKebab = Expect<
+  Equal<TransformKey<'OAuthToken', 'kebab'>, 'o-auth-token'>
+>;
+export type _oneLetterWordBeforeSSnake = Expect<
+  Equal<TransformKey<'IDsort', 'snake'>, 'i_dsort'>
 >;
 export type _twoCapitalPlural = Expect<
   Equal<TransformKey<'IDsList', 'camel'>, 'idsList'>
+>;
+export type _twoCapitalPluralSnake = Expect<
+  Equal<TransformKey<'IDsList', 'snake'>, 'ids_list'>
+>;
+
+// The same holds inside a key: a one-letter word is not merged with the next word.
+export type _innerOneLetterWord = Expect<
+  Equal<TransformKey<'isAValidUser', 'snake'>, 'is_a_valid_user'>
+>;
+export type _innerOneLetterWord2 = Expect<
+  Equal<TransformKey<'hasAPrimaryKey', 'kebab'>, 'has-a-primary-key'>
+>;
+export type _innerOneLetterWordRoundTrip = Expect<
+  Equal<TransformKey<'threeDSecure', 'snake'>, 'three_d_secure'>
+>;
+export type _innerOneLetterWordRoundTrip2 = Expect<
+  Equal<TransformKey<'three_d_secure', 'camel'>, 'threeDSecure'>
+>;
+export type _oneLetterWordBeforeAcronym = Expect<
+  Equal<TransformKey<'iOSVersion', 'snake'>, 'i_os_version'>
 >;
 
 // A word written only in capitals is not in one recognisable case: it is left unchanged.
@@ -77,6 +110,10 @@ export type _pluralCamel = Expect<
 >;
 export type _notPlural = Expect<
   Equal<TransformKey<'HTTPServer', 'snake'>, 'http_server'>
+>;
+// An s word right after an acronym is read as a plural too (a documented trade-off).
+export type _pluralBeforeWord = Expect<
+  Equal<TransformKey<'SSLIsEnabled', 'snake'>, 'sslis_enabled'>
 >;
 
 // Non-acronym conversions still behave (regression guards).

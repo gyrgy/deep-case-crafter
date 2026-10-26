@@ -1,5 +1,6 @@
 import {
   Digit,
+  HexDigit,
   KeyChar,
   LowerLetter,
   Separator,
@@ -27,10 +28,32 @@ type HasOnlyKeyChars<S extends string> = S extends `${infer C}${infer Rest}`
     : false
   : true;
 
+/** The canonical UUID form, where `x` stands for a hexadecimal digit (`UUID_REGEX`) */
+type UuidPattern = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
+
+/**
+ * `true` when `S` is a UUID in canonical form. `S` is compared with `UuidPattern` one
+ * character at a time, stopping at the first character that does not fit, so long keys
+ * stay cheap.
+ */
+type IsUuid<
+  S extends string,
+  Pattern extends string = UuidPattern,
+> = Pattern extends `${infer P}${infer PatternRest}`
+  ? S extends `${infer C}${infer Rest}`
+    ? C extends (P extends 'x' ? HexDigit : P)
+      ? IsUuid<Rest, PatternRest>
+      : false
+    : false
+  : S extends ''
+    ? true
+    : false;
+
 /**
  * Keys the runtime leaves unchanged (`prepareStringTransformation`): keys containing a
- * character outside `A-Z a-z 0-9 _ -`, keys not starting with a letter and keys ending
- * with a separator.
+ * character outside `A-Z a-z 0-9 _ -`, keys not starting with a letter, keys ending with
+ * a separator, and UUIDs. A UUID that starts with a digit is already preserved, so only
+ * keys that the other rules do not preserve are compared with the UUID form.
  */
 type IsPreservedKey<K extends string> =
   HasOnlyKeyChars<K> extends false
@@ -38,7 +61,7 @@ type IsPreservedKey<K extends string> =
     : K extends `${LowerLetter | UpperLetter}${string}`
       ? K extends `${string}${Separator}`
         ? true
-        : false
+        : IsUuid<K>
       : true;
 
 /**
@@ -72,28 +95,26 @@ type FirstChar<S extends string> = S extends `${infer C}${string}` ? C : '';
 
 /**
  * Whether a new word starts at `C`, followed by `Rest` (`isWordBoundary`): `C` is
- * uppercase and follows a lowercase letter or digit, or it ends an acronym that starts a
- * new word (two uppercase letters before it, a lowercase letter after it) — unless that
- * letter is a plural `s` not followed by another lowercase letter.
+ * uppercase and follows a lowercase letter or digit, or it follows an uppercase letter
+ * and comes before a lowercase letter, so the capitals before it are an acronym or a
+ * one-letter word — unless that lowercase letter is a plural `s` not followed by another
+ * lowercase letter.
  */
 type IsWordBoundary<
   C extends string,
   Prev extends string,
-  PrevPrev extends string,
   Rest extends string,
 > = C extends UpperLetter
   ? Prev extends LowerLetter | Digit
     ? true
     : Prev extends UpperLetter
-      ? PrevPrev extends UpperLetter
-        ? Rest extends `${infer Next}${infer AfterNext}`
-          ? Next extends LowerLetter
-            ? Next extends typeof ACRONYM_PLURAL_SUFFIX
-              ? FirstChar<AfterNext> extends LowerLetter
-                ? true
-                : false
-              : true
-            : false
+      ? Rest extends `${infer Next}${infer AfterNext}`
+        ? Next extends LowerLetter
+          ? Next extends typeof ACRONYM_PLURAL_SUFFIX
+            ? FirstChar<AfterNext> extends LowerLetter
+              ? true
+              : false
+            : true
           : false
         : false
       : false
@@ -104,51 +125,33 @@ type ToSeparatedCase<
   S extends string,
   Sep extends Separator,
   Prev extends string = '',
-  PrevPrev extends string = '',
   Acc extends string = '',
 > = S extends `${infer C}${infer Rest}`
   ? ToSeparatedCase<
       Rest,
       Sep,
       C,
-      Prev,
-      `${Acc}${IsWordBoundary<C, Prev, PrevPrev, Rest> extends true
+      `${Acc}${IsWordBoundary<C, Prev, Rest> extends true
         ? Sep
         : ''}${Lowercase<C>}`
     >
   : Acc;
 
 /**
- * Lowercases the first word, up to the first word boundary, so a leading acronym is
- * lowercased as a whole
+ * PascalCase to camelCase (`pascalToCamelCase`): lowercases the first word, up to the
+ * first word boundary, so a leading acronym is lowercased as a whole
+ * (`HTTPRequest` -> `httpRequest`) and a leading one-letter word on its own
+ * (`XAxis` -> `xAxis`)
  */
-type LowercaseFirstWord<
+type PascalToCamelCase<
   S extends string,
   Prev extends string = '',
-  PrevPrev extends string = '',
   Acc extends string = '',
 > = S extends `${infer C}${infer Rest}`
-  ? IsWordBoundary<C, Prev, PrevPrev, Rest> extends true
+  ? IsWordBoundary<C, Prev, Rest> extends true
     ? `${Acc}${S}`
-    : LowercaseFirstWord<Rest, C, Prev, `${Acc}${Lowercase<C>}`>
+    : PascalToCamelCase<Rest, C, `${Acc}${Lowercase<C>}`>
   : Acc;
-
-/**
- * PascalCase to camelCase (`pascalToCamelCase`): two capitals followed by a lowercase
- * letter start with a one-letter word (`XAxis` -> `xAxis`), unless that letter is a
- * plural `s` ending the acronym (`IDs` -> `ids`); otherwise the first word is lowercased
- * as a whole (`HTTPRequest` -> `httpRequest`)
- */
-type PascalToCamelCase<S extends string> =
-  S extends `${infer A}${infer B}${infer C}${infer Rest}`
-    ? [A, B, C] extends [UpperLetter, UpperLetter, LowerLetter]
-      ? C extends typeof ACRONYM_PLURAL_SUFFIX
-        ? FirstChar<Rest> extends LowerLetter
-          ? Uncapitalize<S>
-          : LowercaseFirstWord<S>
-        : Uncapitalize<S>
-      : LowercaseFirstWord<S>
-    : LowercaseFirstWord<S>;
 
 /** snake_case/kebab-case to camelCase (`snakeToCamelCase`, `kebabToCamelCase`) */
 type SeparatedToCamelCase<

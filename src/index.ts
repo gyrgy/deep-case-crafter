@@ -10,5 +10,7 @@ export type { TransformResult } from './types/transformTypes';
 // around `transform` can refer to them instead of expanding them without end
 export type {
   TransformResultFor,
+  TransformResultForExcluding,
   TransformValue,
+  TransformValueExcluding,
 } from './types/transformTypes';

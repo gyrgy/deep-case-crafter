@@ -50,6 +50,65 @@ export type _trailingHyphen = Expect<
   Equal<TransformKey<'count-', 'snake'>, 'count-'>
 >;
 
+// UUIDs are data, not names: they are preserved in either case, whatever their first
+// character.
+export type _uuid = Expect<
+  Equal<
+    TransformKey<'f47ac10b-58cc-4372-a567-0e02b2c3d479', 'camel'>,
+    'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+  >
+>;
+export type _uuidUpperCase = Expect<
+  Equal<
+    TransformKey<'F47AC10B-58CC-4372-A567-0E02B2C3D479', 'snake'>,
+    'F47AC10B-58CC-4372-A567-0E02B2C3D479'
+  >
+>;
+export type _uuidLettersOnly = Expect<
+  Equal<
+    TransformKey<'abcdefab-cdef-abcd-efab-cdefabcdefab', 'pascal'>,
+    'abcdefab-cdef-abcd-efab-cdefabcdefab'
+  >
+>;
+
+// Keys that are not quite UUIDs are transformed like any other key.
+export type _uuidShortSegment = Expect<
+  Equal<
+    TransformKey<'f47ac10b-58cc-4372-a567-0e02b2c3d47', 'camel'>,
+    'f47ac10b58cc4372A5670e02b2c3d47'
+  >
+>;
+export type _uuidLongSegment = Expect<
+  Equal<
+    TransformKey<'f47ac10b-58cc-4372-a5670-e02b2c3d479', 'snake'>,
+    'f47ac10b_58cc_4372_a5670_e02b2c3d479'
+  >
+>;
+export type _uuidExtraCharacter = Expect<
+  Equal<
+    TransformKey<'f47ac10b-58cc-4372-a567-0e02b2c3d4790', 'pascal'>,
+    'F47ac10b58cc4372A5670e02b2c3d4790'
+  >
+>;
+export type _uuidNonHexLetter = Expect<
+  Equal<
+    TransformKey<'g47ac10b-58cc-4372-a567-0e02b2c3d479', 'camel'>,
+    'g47ac10b58cc4372A5670e02b2c3d479'
+  >
+>;
+export type _uuidWithoutDashes = Expect<
+  Equal<
+    TransformKey<'f47ac10b58cc4372a5670e02b2c3d479', 'pascal'>,
+    'F47ac10b58cc4372a5670e02b2c3d479'
+  >
+>;
+export type _uuidUnderscores = Expect<
+  Equal<
+    TransformKey<'f47ac10b_58cc_4372_a567_0e02b2c3d479', 'camel'>,
+    'f47ac10b58cc4372A5670e02b2c3d479'
+  >
+>;
+
 // Trailing digits do not preserve a key.
 export type _letterDigit = Expect<Equal<TransformKey<'s3', 'pascal'>, 'S3'>>;
 export type _capitalDigit = Expect<Equal<TransformKey<'S3', 'camel'>, 's3'>>;

@@ -8,10 +8,11 @@ import isUpperCaseLetter from './charDetectors/isUpperCaseLetter';
  *
  * A new word starts at an uppercase character when either:
  * - the previous character is a lowercase letter or digit (`fooBar` -> `foo|Bar`), or
- * - it is the last letter of an acronym run that starts a new word — i.e. the two
- *   preceding characters are uppercase and the next is lowercase
- *   (`HTTPResponse` -> `HTTP|Response`). A plural `s` that is not followed by another
- *   lowercase letter stays with the acronym instead (`URLs`, `URLs|For`).
+ * - the previous character is uppercase and the next is lowercase, so the capitals
+ *   before it are an acronym or a one-letter word (`HTTPResponse` -> `HTTP|Response`,
+ *   `XAxis` -> `X|Axis`, `isAValidUser` -> `is|A|Valid|User`). A plural `s` that is not
+ *   followed by another lowercase letter stays with the acronym instead (`URLs`, `IDs`,
+ *   `URLs|For`).
  *
  * This is the single source of truth for word boundaries, shared by `toSeparatedCase`
  * and `pascalToCamelCase`, and mirrored by `IsWordBoundary` in `types/keyTypes.ts`.
@@ -25,6 +26,7 @@ import isUpperCaseLetter from './charDetectors/isUpperCaseLetter';
  * isWordBoundary('fooBar', 3) // => true
  * isWordBoundary('HTTPResponse', 4) // => true
  * isWordBoundary('HTTPResponse', 3) // => false
+ * isWordBoundary('XAxis', 1) // => true
  * ```
  * @internal This function is for internal use by the library
  */
@@ -34,11 +36,9 @@ export default function isWordBoundary(str: string, index: number): boolean {
   const prev = str[index - 1] ?? '';
   if (isLowerCaseLetter(prev) || isDigit(prev)) return true;
 
-  const endsAcronym =
-    isUpperCaseLetter(prev) &&
-    isUpperCaseLetter(str[index - 2] ?? '') &&
-    isLowerCaseLetter(str[index + 1] ?? '');
-  if (!endsAcronym) return false;
+  const startsWordAfterCapital =
+    isUpperCaseLetter(prev) && isLowerCaseLetter(str[index + 1] ?? '');
+  if (!startsWordAfterCapital) return false;
 
   const isPluralSuffix =
     str[index + 1] === ACRONYM_PLURAL_SUFFIX &&

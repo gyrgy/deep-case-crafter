@@ -39,6 +39,12 @@ export type UpperLetter = Uppercase<LowerLetter>;
 /** ASCII digits */
 export type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
+/** The letters of hexadecimal digits */
+type HexLetter = 'a' | 'b' | 'c' | 'd' | 'e' | 'f';
+
+/** Hexadecimal digits, in either case */
+export type HexDigit = Digit | HexLetter | Uppercase<HexLetter>;
+
 /** The word separators of snake_case and kebab-case */
 export type Separator = '_' | '-';
 

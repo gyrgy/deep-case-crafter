@@ -1,3 +1,4 @@
+import type { ExcludeState } from '../transform/excludePaths';
 import { PlainCase, StringCase } from './stringCaseTypes';
 
 /**
@@ -25,6 +26,21 @@ export interface TransformOptions {
   depth?: number | undefined;
 
   /**
+   * Keys to leave unchanged, each given as its path: the keys of the input that lead to
+   * it, joined with `.`. `'metadata.*'` keeps the keys of `metadata`, `'users_by_id.*'`
+   * the IDs of a record. `*` stands for any key. Array items and Set members add no key
+   * to a path; Map keys do, and `*` also matches a Map key that is not a string. A key
+   * that contains a `.` can only be matched by `*`. Only the keys themselves are kept:
+   * the values under them are transformed as usual.
+   *
+   * Pass the paths inline, or `as const`, to get a precise result type. Paths only known
+   * as `string[]` give an `unknown` result type.
+   *
+   * @default []
+   */
+  exclude?: readonly string[] | undefined;
+
+  /**
    * @deprecated Has no effect. Every key's case is detected from the key itself, both at
    * runtime and in the result type, so there is nothing to declare.
    */
@@ -33,7 +49,7 @@ export interface TransformOptions {
 
 /**
  * Internal options for transformation (used within the package).
- * Both fields are resolved by `transform` before the recursion starts.
+ * They are resolved by `transform` before the recursion starts.
  */
 export interface TransformOptionsInternal {
   /** The target casing format to transform to */
@@ -41,6 +57,12 @@ export interface TransformOptionsInternal {
 
   /** How many nesting levels to transform (`Infinity` for all of them) */
   depth: number;
+
+  /**
+   * The `exclude` paths that match the keys leading to the value being transformed, or
+   * `null` where none does (everywhere, without `exclude`)
+   */
+  exclude: ExcludeState | null;
 }
 
 /**
@@ -70,4 +92,12 @@ export type TargetCaseOf<Options> = 'targetCase' extends keyof Options
  */
 export type DepthOf<Options> = 'depth' extends keyof Options
   ? Options['depth']
+  : undefined;
+
+/**
+ * The `exclude` paths the runtime uses for one options object: `undefined` (none) when
+ * `exclude` is omitted.
+ */
+export type ExcludeOf<Options> = 'exclude' extends keyof Options
+  ? Options['exclude']
   : undefined;
