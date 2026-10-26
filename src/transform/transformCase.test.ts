@@ -39,6 +39,13 @@ describe('transformCase', () => {
     it('should return original string if already in target case', () => {
       expect(transformCase('helloWorld', 'camel')).toBe('helloWorld');
     });
+
+    it('should leave UUIDs unchanged', () => {
+      const uuid = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+      expect(transformCase(uuid, 'camel')).toBe(uuid);
+      expect(transformCase(uuid, 'pascal')).toBe(uuid);
+      expect(transformCase(uuid, 'snake')).toBe(uuid);
+    });
   });
 
   describe('Complex transformations', () => {
@@ -58,9 +65,23 @@ describe('transformCase', () => {
       expect(transformCase('XId', 'camel')).toBe('xId');
       // ...but not a plural s ending a two-letter acronym
       expect(transformCase('IDs', 'camel')).toBe('ids');
-      // snake_case and kebab-case keep such a start as one word
-      expect(transformCase('ETag', 'snake')).toBe('etag');
-      expect(transformCase('OAuth2Token', 'kebab')).toBe('oauth2-token');
+    });
+
+    it('should keep a one-letter word apart in snake_case and kebab-case', () => {
+      expect(transformCase('XAxis', 'snake')).toBe('x_axis');
+      expect(transformCase('ETag', 'snake')).toBe('e_tag');
+      expect(transformCase('OAuth2Token', 'kebab')).toBe('o-auth2-token');
+      expect(transformCase('isAValidUser', 'snake')).toBe('is_a_valid_user');
+      expect(transformCase('hasAPrimaryKey', 'kebab')).toBe(
+        'has-a-primary-key',
+      );
+      // ...but not a plural s ending a two-letter acronym
+      expect(transformCase('IDs', 'snake')).toBe('ids');
+    });
+
+    it('should round-trip a one-letter word through snake_case', () => {
+      expect(transformCase('threeDSecure', 'snake')).toBe('three_d_secure');
+      expect(transformCase('three_d_secure', 'camel')).toBe('threeDSecure');
     });
 
     it('should leave words written only in capitals unchanged', () => {

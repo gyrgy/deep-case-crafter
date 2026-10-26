@@ -77,3 +77,24 @@ export type _optionalTarget = Expect<
     | { userId: number; userInfo: { firstName: string } }
   >
 >;
+
+// exclude paths are captured inline, and an optional exclude may also be omitted
+const _excludeValue = transform(input, { exclude: ['user_info.*'] });
+export type _exclude = Expect<
+  Equal<
+    typeof _excludeValue,
+    { userId: number; tags: string[]; userInfo: { first_name: string } }
+  >
+>;
+
+const _excludeEmptyValue = transform(input, { exclude: [] });
+export type _excludeEmpty = Expect<Equal<typeof _excludeEmptyValue, Camel>>;
+
+declare const maybeExclude: { exclude?: readonly ['user_info.*'] };
+const _optionalExcludeValue = transform(input, maybeExclude);
+export type _optionalExclude = Expect<
+  Equal<
+    typeof _optionalExcludeValue,
+    Camel | { userId: number; tags: string[]; userInfo: { first_name: string } }
+  >
+>;

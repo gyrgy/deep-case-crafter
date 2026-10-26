@@ -144,6 +144,55 @@ declare const brandedNumber: Brand<number, 'Depth'>;
 const _brandedNumberValue = transform(input, { depth: brandedNumber });
 export type _brandedNumber = Expect<Equal<typeof _brandedNumberValue, unknown>>;
 
+// Each member of a union of options objects keeps its own exclude paths
+declare const excludeOptions:
+  | { exclude: readonly ['homeAddr.*'] }
+  | { targetCase: 'snake'; exclude: readonly ['user_id', 'homeAddr.post_box'] }
+  | { depth: 1 };
+const _excludeUnionValue = transform(input, excludeOptions);
+export type _excludeUnion = Expect<
+  Equal<
+    typeof _excludeUnionValue,
+    | {
+        userId: number;
+        lastName: string;
+        homeAddr: { zipCode: string; post_box: number };
+      }
+    | {
+        user_id: number;
+        last_name: string;
+        home_addr: { zip_code: string; post_box: number };
+      }
+    | CamelDepth1
+  >
+>;
+
+// Stored paths are known `as const`, and unknown as a string[]
+const storedExclude = { exclude: ['homeAddr.*'] } as const;
+const _storedExcludeValue = transform(input, storedExclude);
+export type _storedExclude = Expect<
+  Equal<
+    typeof _storedExcludeValue,
+    {
+      userId: number;
+      lastName: string;
+      homeAddr: { zipCode: string; post_box: number };
+    }
+  >
+>;
+
+declare const somePaths: string[];
+const _somePathsValue = transform(input, { exclude: somePaths });
+export type _somePaths = Expect<Equal<typeof _somePathsValue, unknown>>;
+
+// The 2.x form with explicit type arguments does not accept exclude either
+transform<typeof input, 'snake', 'camel'>(input, {
+  sourceCase: 'snake',
+  targetCase: 'camel',
+  // @ts-expect-error exclude needs the inferred form (no type arguments)
+  exclude: ['homeAddr.*'],
+});
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const someAnyTarget: { targetCase: any } | { depth: 1 };
 const _someAnyTargetValue = transform(input, someAnyTarget);

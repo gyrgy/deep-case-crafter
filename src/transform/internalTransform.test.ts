@@ -1,4 +1,5 @@
 import { runInNewContext } from 'node:vm';
+import { createExcludeState } from './excludePaths';
 import internalTransform from './internalTransform';
 import transformKey from './transformKey';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
@@ -20,6 +21,7 @@ describe('internalTransform', () => {
   const options: TransformOptionsInternal = {
     targetCase: 'camel',
     depth: Infinity,
+    exclude: null,
   };
 
   describe('collections', () => {
@@ -345,5 +347,129 @@ describe('internalTransform', () => {
     const result = internalTransform(obj, options) as CircularObject;
     expect(result).toEqual({ selfRef: expect.any(Object) });
     expect(result.selfRef).toBe(result);
+  });
+
+  describe('exclude', () => {
+    /** Transforms `data` with the `exclude` paths `paths`, as `transform` does */
+    const transformExcluding = (
+      data: unknown,
+      paths: string[],
+      overrides: Partial<TransformOptionsInternal> = {},
+    ) => {
+      const state = createExcludeState(paths, { ...options, ...overrides });
+      if (!state) throw new Error('Expected a state');
+      return internalTransform(data, state.options, state.visitedRefs);
+    };
+
+    it('should keep the keys at the paths and transform the values under them', () => {
+      const input = {
+        users_by_id: { u_1: { first_name: 'Ann' } },
+        metadata: { order_ref: 'A1', line_items: [{ item_id: 1 }] },
+        user_info: { first_name: 'Bob' },
+      };
+      expect(
+        transformExcluding(input, ['users_by_id.*', 'metadata.*']),
+      ).toEqual({
+        usersById: { u_1: { firstName: 'Ann' } },
+        metadata: { order_ref: 'A1', line_items: [{ itemId: 1 }] },
+        userInfo: { firstName: 'Bob' },
+      });
+    });
+
+    it('should match Map keys by name, and every Map key with *', () => {
+      const input = new Map<unknown, unknown>([
+        ['user_id', { first_name: 1 }],
+        [7, { first_name: 2 }],
+        ['last_name', { first_name: 3, nick_name: 4 }],
+      ]);
+      transformKeyMock.mockClear();
+      const result = transformExcluding(input, ['user_id', '*.first_name'], {
+        targetCase: 'pascal',
+      }) as Map<unknown, unknown>;
+      expect([...result]).toEqual([
+        ['user_id', { first_name: 1 }],
+        [7, { first_name: 2 }],
+        ['LastName', { first_name: 3, NickName: 4 }],
+      ]);
+      // Map keys are converted without the key cache, object keys with it
+      expect(transformKeyMock).not.toHaveBeenCalledWith('last_name', 'pascal');
+      expect(transformKeyMock).toHaveBeenCalledWith('nick_name', 'pascal');
+    });
+
+    it('should transform own properties only, not inherited ones', () => {
+      const input = Object.create({ proto_prop: 1 });
+      input.own_prop = { a_b: 1 };
+      expect(transformExcluding(input, ['own_prop.*', 'proto_prop'])).toEqual({
+        ownProp: { a_b: 1 },
+      });
+    });
+
+    it('should pass the paths on to the items of arrays, nested arrays and Sets', () => {
+      const input = {
+        cell_grid: [[{ cell_id: 1, cell_name: 'a' }]],
+        tag_set: new Set([{ tag_name: 'x', tag_id: 1 }]),
+      };
+      expect(
+        transformExcluding(input, ['cell_grid.cell_id', 'tag_set.tag_name']),
+      ).toEqual({
+        cellGrid: [[{ cell_id: 1, cellName: 'a' }]],
+        tagSet: new Set([{ tag_name: 'x', tagId: 1 }]),
+      });
+    });
+
+    it('should give a shared object one result for each set of paths it is reached with', () => {
+      type Result = Record<'aA' | 'bB' | 'cC', unknown>;
+      const shared = { k_k: 1 };
+      const result = transformExcluding(
+        { a_a: shared, b_b: shared, c_c: shared },
+        ['a_a.k_k', 'b_b.k_k'],
+      ) as Result;
+      expect(result).toEqual({
+        aA: { k_k: 1 },
+        bB: { k_k: 1 },
+        cC: { kK: 1 },
+      });
+      expect(result.bB).toBe(result.aA); // the same paths below a_a and b_b
+      expect(result.cC).not.toBe(result.aA);
+    });
+
+    it('should resolve circular references with every set of paths', () => {
+      type Node = { nodeName: string; childNode: Node } & {
+        node_name: string;
+      };
+      const node: Record<string, unknown> = { node_name: 'n' };
+      node.child_node = node;
+
+      const result = transformExcluding(node, ['child_node.node_name']) as Node;
+      expect(result.nodeName).toBe('n');
+      expect(result.childNode.node_name).toBe('n');
+      // Below that, no path is left: the cycle resolves as it does without exclude
+      const plain = result.childNode.childNode;
+      expect(plain.nodeName).toBe('n');
+      expect(plain.childNode).toBe(plain);
+
+      const list: unknown[] = [{ a_b: 1, c_d: 2 }];
+      list.push(list);
+      const listResult = transformExcluding(list, ['a_b']) as unknown[];
+      expect(listResult[0]).toEqual({ a_b: 1, cD: 2 });
+      expect(listResult[1]).toBe(listResult);
+    });
+
+    it('should apply the depth limit as without exclude', () => {
+      const shared = { a_b: { c_d: 1 } };
+      expect(
+        transformExcluding({ x_x: shared, y_y: { z_z: shared } }, ['x_x.a_b'], {
+          depth: 3,
+        }),
+      ).toEqual({
+        xX: { a_b: { cD: 1 } },
+        yY: { zZ: { aB: { c_d: 1 } } },
+      });
+      expect(
+        transformExcluding({ a_b: { c_d: { e_f: 1 } } }, ['a_b.c_d'], {
+          depth: 2,
+        }),
+      ).toEqual({ aB: { c_d: { e_f: 1 } } });
+    });
   });
 });

@@ -84,7 +84,11 @@ export type _infiniteDepth = Expect<
 >;
 
 // `TransformOptions` accepts every option
-export const allOptions: TransformOptions = { targetCase: 'kebab', depth: 2 };
+export const allOptions: TransformOptions = {
+  targetCase: 'kebab',
+  depth: 2,
+  exclude: ['user_info.*'],
+};
 
 // The explicit output type overload returns exactly the given type, even when that type
 // has a property named like an option

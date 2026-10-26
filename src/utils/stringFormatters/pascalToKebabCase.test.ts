@@ -13,6 +13,15 @@ describe('pascalToKebabCase', () => {
     expect(pascalToKebabCase('HTTPResponse')).toBe('http-response');
   });
 
+  it('should keep a leading one-letter word apart from the next word', () => {
+    expect(pascalToKebabCase('XAxis')).toBe('x-axis');
+    expect(pascalToKebabCase('ETag')).toBe('e-tag');
+    expect(pascalToKebabCase('IPhone')).toBe('i-phone');
+    expect(pascalToKebabCase('OAuthToken')).toBe('o-auth-token');
+    expect(pascalToKebabCase('IPv4')).toBe('i-pv4');
+    expect(pascalToKebabCase('VCpuCount')).toBe('v-cpu-count');
+  });
+
   it('should handle PascalCase strings with numbers', () => {
     expect(pascalToKebabCase('Hello123World')).toBe('hello123-world');
   });

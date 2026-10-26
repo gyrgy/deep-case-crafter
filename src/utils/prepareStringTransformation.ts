@@ -1,5 +1,6 @@
-import detectStringCase from './detectStringCase';
+import { UUID_REGEX } from '../constants/regex';
 import { StringCase } from '../types/stringCaseTypes';
+import detectStringCase from './detectStringCase';
 
 /**
  * Internal type used by string preparation utility
@@ -37,11 +38,12 @@ export function prepareStringTransformation(
   }
 
   // Check if the string contains any characters that would make it
-  // incompatible with our supported case formats
+  // incompatible with our supported case formats, or is data rather than a name
   if (
     /[^A-Za-z0-9_-]/.test(str) || // Disallow unsupported characters (excluding letters, numbers, underscores, hyphens)
     /^[^A-Za-z]/.test(str) || // Disallow strings starting with anything other than a letter
-    /[^A-Za-z0-9]$/.test(str) // Disallow strings ending with non-alphanumeric characters
+    /[^A-Za-z0-9]$/.test(str) || // Disallow strings ending with non-alphanumeric characters
+    UUID_REGEX.test(str) // Disallow UUIDs: data, not names (`f47ac10b-...` would otherwise read as kebab-case)
   ) {
     return {
       string: str,

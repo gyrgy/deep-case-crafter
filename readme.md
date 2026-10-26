@@ -1,7 +1,5 @@
 # DeepCaseCrafter
 
-**DeepCaseCrafter** transforms deeply nested object keys between case formats (`camelCase`, `PascalCase`, `snake_case`, `kebab-case`). It works on objects, arrays, Maps, and Sets, with configurable recursion depth, and types the result precisely: every key is typed the way it is transformed at runtime (with a few [exceptions](#result-types)).
-
 [![npm version](https://img.shields.io/npm/v/deep-case-crafter)](https://www.npmjs.com/package/deep-case-crafter)
 [![npm bundle size](https://img.shields.io/bundlephobia/minzip/deep-case-crafter)](https://bundlephobia.com/package/deep-case-crafter)
 [![npm type definitions](https://img.shields.io/npm/types/deep-case-crafter)](https://www.npmjs.com/package/deep-case-crafter)
@@ -10,15 +8,38 @@
 [![Maintenance](https://img.shields.io/maintenance/yes/2026.svg)](https://github.com/gyrgy/deep-case-crafter/graphs/commit-activity)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gyrgy/deep-case-crafter/blob/main/LICENSE)
 
+Converts the keys of nested objects, arrays, Maps and Sets between camelCase,
+snake_case, kebab-case and PascalCase, and types the result exactly.
+
+```typescript
+import { transform } from 'deep-case-crafter';
+
+// A record from a snake_case API
+const apiUser = { user_id: 42, first_name: 'Ann', orders: [{ order_id: 7 }] };
+
+const user = transform(apiUser);
+//    ^? { userId: number; firstName: string; orders: { orderId: number }[] }
+console.log(user); // { userId: 42, firstName: 'Ann', orders: [{ orderId: 7 }] }
+
+const body = transform(user, { targetCase: 'snake' });
+//    ^? { user_id: number; first_name: string; orders: { order_id: number }[] }
+```
+
 ## Features
 
-- Converts keys to `camelCase`, `PascalCase`, `snake_case`, and `kebab-case`.
-- **Acronym-aware**: `HTTPResponse` → `http_response` or `httpResponse`, `userID` → `user_id` — not `h_t_t_p_...` or `hTTPResponse`.
-- Works with deeply nested structures, including objects, arrays, Maps, and Sets.
-- Leaves `Date`, `RegExp`, `Error`, typed arrays, `Buffer` and other built-in values untouched.
-- **Precise result types**: every key is typed the way it is transformed at runtime, so `result.firstName` is known at compile time without casts.
-- Preserves special keys (`__`, `--`, leading numbers, special characters, words in capitals).
-- Configurable recursion depth (default: fully recursive).
+- **Exact result types**: every key is typed the way it is converted at runtime, so
+  `user.firstName` is checked at compile time, without casts or type arguments (with a
+  few [exceptions](#result-types)).
+- **No source case to declare**: every key's case is detected from the key itself, so
+  keys in different cases can be mixed in one input.
+- **Acronym-aware**: `userID` → `user_id`, `HTTPResponse` → `http_response` or
+  `httpResponse`.
+- **Deep**: objects, arrays, `Map` and `Set`, down to an optional `depth`, circular
+  references included. `Date`, `RegExp`, typed arrays and other built-in values are
+  returned untouched.
+- **Keys that are data keep their names**: UUIDs always, and any other key whose path
+  you list in [`exclude`](#leaving-keys-unchanged), such as `'users_by_id.*'`.
+- No dependencies, with ES module and CommonJS builds.
 
 ## Installation
 
@@ -28,15 +49,9 @@ npm install deep-case-crafter
 
 The type definitions require TypeScript 4.7 or later.
 
-> **⚠️ v2 breaking change:** `transform` is now a **named export**. Update
-> `import transform from 'deep-case-crafter'` to
-> `import { transform } from 'deep-case-crafter'` (CommonJS:
-> `const { transform } = require('deep-case-crafter')`). This fixes type
-> resolution for modern (`node16`/`nodenext`/bundler) consumers.
-
-> **⚠️ v3 breaking changes:** result types are precise without `sourceCase`, a few keys
-> convert differently, built-in values are returned untouched, and invalid options
-> throw. See [Upgrading to v3](#upgrading-to-v3).
+Upgrading from an earlier major version? The
+[changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md) lists
+what changed in each version and what to update.
 
 ---
 
@@ -147,6 +162,49 @@ console.log(transform(strings, { targetCase: 'camel' }));
 
 ---
 
+## How it compares
+
+Checked in October 2026 against
+[ts-case-convert](https://www.npmjs.com/package/ts-case-convert) 2.3.1 (the closest
+typed alternative), [camelcase-keys](https://www.npmjs.com/package/camelcase-keys)
+10.0.3, [snakecase-keys](https://www.npmjs.com/package/snakecase-keys) 9.0.2 and
+[es-toolkit](https://www.npmjs.com/package/es-toolkit) 1.53.0 (`toCamelCaseKeys`,
+`toSnakeCaseKeys`). Plain snake_case keys such as `user_id` become the same camelCase
+keys in all of them. The table shows where they differ:
+
+|                                                    | deep-case-crafter                       | ts-case-convert                                                        | camelcase-keys, snakecase-keys                                    | es-toolkit                                                     |
+| -------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| `userID` to snake_case                             | `user_id`                               | `user_i_d`                                                             | `user_id`                                                         | `user_id`, typed `user_i_d`                                    |
+| `HTTPResponse` to snake_case                       | `http_response`                         | `h_t_t_p_response`                                                     | `http_response`                                                   | `http_response`, typed `h_t_t_p_response`                      |
+| `isAValidUser` to snake_case                       | `is_a_valid_user`                       | `is_a_valid_user`                                                      | `is_a_valid_user`                                                 | `is_a_valid_user`                                              |
+| `addressLine1` to snake_case                       | `address_line1`                         | `address_line_1`, or `address_line1` with `no-split-numbers`           | `address_line1`                                                   | `address_line_1`, typed `address_line1`                        |
+| Objects inside a `Map` or `Set`                    | keys converted                          | outside its documented scope                                           | outside their documented scope                                    | left as they are, as documented                                |
+| Result type for `await res.json()`, an `any` input | `any`                                   | a union that includes `Date` and `null`, so `.userId` does not compile | `any`                                                             | `any`                                                          |
+| A `readonly string[]` field in the result type     | `readonly string[]`                     | an object type whose `.map()` does not compile                         | `readonly string[]`                                               | an object type: `.map()` compiles, `[0]` and `for...of` do not |
+| A `[number, number]` field in the result type      | `[number, number]`                      | `number[]`                                                             | `[number, number]`                                                | `number[]`                                                     |
+| Leaving chosen keys unchanged                      | `exclude` paths, such as `'metadata.*'` | no option                                                              | `exclude` keys by name or RegExp; camelcase-keys also `stopPaths` | no option                                                      |
+| Target cases                                       | camel, snake, kebab, Pascal             | camel, snake, Pascal, SCREAMING_SNAKE                                  | camel and Pascal; snake                                           | camel, snake, kebab, Pascal, SCREAMING_SNAKE                   |
+
+Where the others are better or different:
+
+- **Bundle size**: bundled and minified with esbuild, ts-case-convert's `objectToCamel`
+  and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
+  2.6 KB.
+- **More output**: ts-case-convert and es-toolkit also convert to SCREAMING_SNAKE_CASE,
+  and both have functions for single strings: `toSnake('userId')` and
+  `snakeCase('userId')` return `'user_id'`. deep-case-crafter has neither.
+- **Digits**: ts-case-convert separates digits by default (`addressLine1` →
+  `address_line_1`), so `address_line_1` → `addressLine1` → `address_line_1`
+  round-trips. Its `ts-case-convert/no-split-numbers` entry point keeps digits attached
+  instead, as deep-case-crafter always does: `addressLine1` → `address_line1`.
+- **Acronyms**: ts-case-convert splits every capital, so `userID` → `user_i_d` comes back
+  as `userID`. deep-case-crafter's `user_id` comes back as `userId`.
+- **Options**: camelcase-keys and snakecase-keys leave keys unchanged by name or RegExp
+  at any depth, and snakecase-keys accepts your own conversion function. camelcase-keys
+  converts only the top level unless you pass `deep: true`.
+
+---
+
 ## Acronym-aware conversion
 
 When converting **to** `snake_case` or `kebab-case`, runs of capitals (acronyms)
@@ -161,13 +219,29 @@ console.log(result);
 //   (not  { get_h_t_t_p_response, user_i_d, ... })
 ```
 
-A plural `s` stays with its acronym: `allowedURLs` → `allowed_urls`,
-`getURLsForIDs` → `get_urls_for_ids`. An `s` word that follows an acronym directly is
-read the same way, so `SSLIsEnabled` becomes `sslis_enabled`.
+The last capital before a lowercase letter starts the next word, so a single capital
+before a capitalised word is a one-letter word, in every target case:
 
-When converting `PascalCase` **to** `camelCase`, a leading acronym is lowercased as
-a whole. Two capitals followed by a lowercase letter are a one-letter word and the next
-word, unless that letter is a plural `s` ending the acronym:
+```typescript
+const input = { isAValidUser: 1, XAxis: 2 };
+
+console.log(transform(input, { targetCase: 'snake' }));
+// Output: { is_a_valid_user: 1, x_axis: 2 }
+
+console.log(transform(input, { targetCase: 'camel' }));
+// Output: { isAValidUser: 1, xAxis: 2 }
+```
+
+Such keys round-trip: `three_d_secure` → `threeDSecure` → `three_d_secure`. A key that
+starts with two capitals before a lowercase letter is read the same way:
+`OAuthToken` → `o_auth_token`, `IPv4` → `i_pv4`.
+
+A plural `s` stays with its acronym: `allowedURLs` → `allowed_urls`,
+`getURLsForIDs` → `get_urls_for_ids`, `IDs` → `ids`. An `s` word that follows an
+acronym directly is read the same way, so `SSLIsEnabled` becomes `sslis_enabled`.
+
+When converting `PascalCase` **to** `camelCase`, the first word is lowercased: a leading
+acronym as a whole, a leading one-letter word on its own:
 
 ```typescript
 const input = { HTTPResponse: 1, UserID: 2, XAxis: 3, IDs: 4 };
@@ -199,22 +273,69 @@ The result **types** match all of this, so `result.get_http_response` and
 - **options**:
   - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab'` (default: `'camel'`, also used for any falsy value such as `''`, `null` or `0`). Any other value throws a `TypeError`.
   - `depth` (optional): **How many nesting levels to transform** (default: `Infinity` — the whole structure; `null` means the same). `1` transforms only the top-level keys, `2` the keys one level down as well, and so on. The values of objects, Maps and Sets are one level deeper; array items stay on their array's level. A value that is not a number (`NaN`, `'3'`, `3n`) throws a `TypeError`.
-  - `sourceCase` (**deprecated**): has no effect. Every key's case is detected from the key itself, at runtime and in the result type. It is still accepted, and so is the 2.x form with explicit type arguments, `transform<Data, 'snake', 'camel'>(data, { sourceCase: 'snake', targetCase: 'camel' })`, except together with `depth` (leave the type arguments out to use `depth`); the key types follow the runtime, not `sourceCase` (see [Upgrading to v3](#upgrading-to-v3)).
+  - `exclude` (optional): **Keys to leave unchanged**, as paths of keys joined with dots, such as `['users_by_id.*', 'metadata.*']` (default: none; `null` means the same). See [Leaving keys unchanged](#leaving-keys-unchanged). Anything but an array of such paths throws a `TypeError`.
+  - `sourceCase` (**deprecated**): has no effect. Every key's case is detected from the key itself, at runtime and in the result type. It is still accepted, and so is the 2.x form with explicit type arguments, `transform<Data, 'snake', 'camel'>(data, { sourceCase: 'snake', targetCase: 'camel' })`, except together with `depth` or `exclude` (leave the type arguments out to use them); the key types follow the runtime, not `sourceCase` (see [3.0.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#300---2026-10-25)).
 
 Circular references are resolved to the transformed object. With a finite `depth`, a
 cycle is transformed once per level down to the limit instead: the result grows with the
 depth, and a depth of more than about a thousand levels on cyclic data exceeds the call
 stack and throws a `RangeError`. Omit `depth` for cyclic data, or keep it small.
 
+### Leaving keys unchanged
+
+Keys that are data rather than field names, such as the IDs of a record, the keys of
+free-form metadata, locale codes or Map keys, should keep their names. List their paths
+in `exclude`:
+
+```typescript
+const response = {
+  users_by_id: { abc_1: { first_name: 'Ann' } },
+  metadata: { order_ref: 'A1' },
+};
+
+const result = transform(response, {
+  exclude: ['users_by_id.*', 'metadata.*'],
+});
+
+console.log(result);
+// Output: { usersById: { abc_1: { firstName: 'Ann' } }, metadata: { order_ref: 'A1' } }
+```
+
+- A path is the chain of keys that leads to a key in the input (the keys before they are
+  transformed), joined with `.`. A `*` in place of a key matches any key.
+- A key keeps its name when its whole path matches: `metadata.*` keeps the keys of
+  `metadata`, not `metadata` itself, nor the keys further down. The value of a kept key
+  is still transformed, so `first_name` above becomes `firstName`.
+- Array items and Set members add no key to a path: `orders.order_id` matches the
+  `order_id` of every item of an `orders` array. Map keys do: `prices.*` keeps the keys
+  of a `prices` Map, and `*` also matches Map keys that are not strings.
+- A key that contains a `.` cannot be named in a path, but `*` matches it.
+- `exclude` does not change `depth`: keys below the depth limit are left unchanged
+  anyway. An empty array is the same as no `exclude`.
+
+The result type follows the paths when they are written inline or `as const`; paths only
+known as `string[]` give an `unknown` result type.
+
+### Passing `transform` as a callback
+
+Wrap it in a function: `.then((data) => transform(data))`,
+`rows.map((row) => transform(row))`. Passed by name, `transform` gets an `unknown` result
+type, because TypeScript then uses its last overload, `transform<Input, Output>`, whose
+output it cannot infer, and `map` would pass each row's index as the options.
+
 ### Result types
 
 The result type follows the runtime: every key is typed the way it is transformed
 (including the [preservation rules](#key-preservation-rules)), untouched values such as
 `Date` keep their type, and `readonly` arrays, tuples, Maps and Sets keep their shape. Use
-`TransformResult<Data, TargetCase, Depth>` to name it.
+`TransformResult<Data, TargetCase, Depth, Exclude>` to name it, where `Exclude` is the
+type of the `exclude` paths, such as `['metadata.*']`.
 
 - A literal `depth` is applied to the type precisely. A depth only known as a `number` (a
   variable, or `Infinity`) gives `unknown`, so omit `depth` to transform everything.
+- `exclude` paths are applied to the type when they are literals, written inline or
+  stored `as const`. Paths only known as `string[]` give `unknown`, as a depth only known
+  as a `number` does.
 - `targetCase` and `depth` may be string enum members, branded literals, unions, or come
   from a stored options object: every options value they may hold gives its own result.
   Options that are not known at all give `unknown`: an options object that may be
@@ -268,6 +389,9 @@ A key is left **completely unchanged** when it:
 - **ends with a non-alphanumeric character**, e.g. `value_`, `count-`;
 - **contains characters outside** `A-Z a-z 0-9 _ -`, e.g. `user.name`, `a@b`;
 - **contains consecutive `__` or `--`**, e.g. `a__b`, `x--y` (ambiguous to detect);
+- **is a UUID** (8-4-4-4-12 hexadecimal digits, in either case), e.g.
+  `f47ac10b-58cc-4372-a567-0e02b2c3d479`: it is data, not a name, so it is kept whether
+  it starts with a digit or a letter;
 - **is not written in one recognisable case**, e.g. `mixed_Case`, `USER_ID`, `a_b-c`, or
   is a word of two or more capitals, e.g. `ID`, `USD`, `B2B`.
 
@@ -275,7 +399,9 @@ Trailing digits are kept but treated as part of the word, so they do **not** by
 themselves preserve a key — `address_1` becomes `address1`, and the single word
 `item2` stays `item2`.
 
-These rules apply to the result types as well.
+These rules apply to `Map` keys and to the result types as well. To keep other keys
+unchanged, such as IDs or the keys of free-form metadata, list their paths in
+[`exclude`](#leaving-keys-unchanged).
 
 ---
 
@@ -302,62 +428,28 @@ Worth knowing:
 - With `depth`, values below the limit are returned as they are: the result shares them
   with the input instead of copying them. An object reached at several levels is
   transformed once per level.
+- With `exclude`, an object reached through several keys is transformed once for each
+  set of paths that match below them: one result when the same paths continue below
+  every key, one per set otherwise.
 - The transformation is recursive: data nested about a thousand levels deep or more can
   exceed the JavaScript call stack and throw an error (usually a `RangeError`).
 
 ---
 
-## Upgrading to v3
+## Versioning
 
-Runtime behaviour:
+deep-case-crafter follows [semantic versioning](https://semver.org). The v3 API is
+stable. Key outputs change only to fix bugs, and every change is listed in the
+[changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md): if you
+store converted keys, such as database columns, check it before upgrading. A minor
+version can add an option to `TransformOptions`, which `Required<TransformOptions>` then
+requires.
 
-- A few keys convert differently:
-  - a leading acronym is lowercased as a whole in camelCase: `HTTPResponse` →
-    `httpResponse` (was `hTTPResponse`), `IOStream` → `ioStream`, `URLs` → `urls`;
-  - a plural `s` stays with its acronym: `allowedURLs` → snake_case `allowed_urls` (was
-    `allowed_ur_ls`), `IDs` → camelCase `ids` (was `iDs`). An `s` word right after an
-    acronym is read as a plural too: `SSLIsEnabled` → `sslis_enabled` (was
-    `ssl_is_enabled`);
-  - a key named `Infinity` is converted like any other word (`infinity`).
-- `Date`, `RegExp`, `Error`, `URL`, typed arrays, `Buffer` and other built-ins, objects
-  with a `Symbol.toStringTag` (their own or their class's), `arguments` objects and module
-  namespaces are returned untouched. 2.x rebuilt them as plain objects, which turned a
-  `Date` into `{}`.
-- Maps and Sets from another realm (an iframe, `node:vm`) are transformed, and a Proxy
-  around a Map or Set is returned untouched (2.x threw).
-- Enumerable properties added to `Object.prototype` are no longer copied into results.
-- Properties are read and transformed one at a time, so getters run in a different order,
-  and Maps are read through their iterator rather than `entries()`.
-- With a finite `depth`, an object reached at several levels is transformed once per
-  level, and a circular reference is transformed down to the limit (see the API section
-  for large depths). 2.x shared one result, which depended on key order and ignored the
-  limit.
-- An unsupported `targetCase`, or a `depth` that is not a number, throws a `TypeError`.
-- Very deeply nested data reaches the call stack limit at different depths: nested
-  objects can go deeper than in 2.x, chains of Maps or Sets nested more than about 1,400
-  levels deep no longer fit.
+### Upgrading to v3
 
-Types:
-
-- The result type is precise without `sourceCase`, which is deprecated and has no effect.
-  `TransformResult` is exported to name it.
-- Assigning or casting (`as Foo`) the result of `transform(x)` to a declared type now
-  checks it against the real result type; a cast to an unrelated type fails with TS2352.
-  If `x` is typed `unknown` or loosely, state the output type:
-  `transform<Input, Output>(x)`.
-- `depth: Infinity` (or any `depth` not known as a literal) gives `unknown`: omit `depth`
-  instead.
-- An input typed `any` gives `any` (2.x gave `unknown`).
-- Key types follow the runtime, also when `sourceCase` is passed, so code that relied on
-  2.x's key types for keys the runtime converts differently (`result.hTTPResponse`) no
-  longer compiles.
-- `TransformOptions` includes `depth`, so `Required<TransformOptions>` requires it.
-- The 2.x form with three type arguments, `transform<Data, 'snake', 'camel'>(...)`, no
-  longer accepts `depth`: leave the type arguments out instead. As an instantiation
-  expression (`ReturnType<typeof transform<Data, 'snake', 'camel'>>`) it no longer
-  compiles: use `TransformResult<Data, 'camel'>`.
-- `Parameters<typeof transform>[1]` (the options of the last overload) no longer includes
-  the deprecated `sourceCase`.
+The changes from 2.x, and what to update, are listed under
+[3.0.0](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#300---2026-10-25)
+in the changelog.
 
 ---
 
@@ -382,4 +474,6 @@ MIT
 
 - [NPM Package](https://www.npmjs.com/package/deep-case-crafter)
 - [GitHub Repository](https://github.com/gyrgy/deep-case-crafter)
+- [Changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md)
+- [Security Policy](https://github.com/gyrgy/deep-case-crafter/blob/main/SECURITY.md)
 - [TypeScript Docs](https://www.typescriptlang.org/)

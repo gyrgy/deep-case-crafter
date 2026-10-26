@@ -4,6 +4,7 @@ import getObjectTag from '../utils/getObjectTag';
 import isMap from '../utils/isMap';
 import isSet from '../utils/isSet';
 import setKey from '../utils/setKey';
+import { ExcludeState, excludeStep, stepScope } from './excludePaths';
 import transformCase from './transformCase';
 import transformKey from './transformKey';
 
@@ -16,7 +17,8 @@ import transformKey from './transformKey';
  *
  * @param data - The data to transform (object, array, Map, Set)
  * @param options - Transformation options
- * @param visitedRefs - Used internally to track circular and shared references, per level
+ * @param visitedRefs - Used internally to track circular and shared references, per level.
+ * With `exclude`, every set of matching paths has its own (see `ExcludeState`).
  * @param currentDepth - Used internally to track current recursion depth
  * @returns The transformed data
  *
@@ -65,7 +67,11 @@ export default function internalTransform(
   if (isMap(data, tag)) {
     const result = new Map<unknown, unknown>();
     visited.set(data, result);
-    transformEntries(data, result, options, visitedRefs, nextDepth);
+    if (options.exclude === null) {
+      transformEntries(data, result, options, visitedRefs, nextDepth);
+    } else {
+      transformExcludedEntries(data, result, options.exclude, nextDepth);
+    }
     return result;
   }
 
@@ -83,15 +89,19 @@ export default function internalTransform(
     const result: Record<PropertyKey, unknown> = {};
     visited.set(data, result);
 
-    // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped)
-    for (const key in source) {
-      if (Object.prototype.hasOwnProperty.call(source, key)) {
-        setKey(
-          result,
-          transformKey(key, options.targetCase),
-          internalTransform(source[key], options, visitedRefs, nextDepth),
-        );
+    if (options.exclude === null) {
+      // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped)
+      for (const key in source) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          setKey(
+            result,
+            transformKey(key, options.targetCase),
+            internalTransform(source[key], options, visitedRefs, nextDepth),
+          );
+        }
       }
+    } else {
+      transformExcludedProperties(source, result, options.exclude, nextDepth);
     }
 
     // Symbol-keyed properties are copied across unchanged
@@ -149,5 +159,47 @@ function transformMembers(
 ): void {
   for (const value of source) {
     result.add(internalTransform(value, options, visitedRefs, depth));
+  }
+}
+
+// With `exclude`, objects and Maps where a path still matches go through these loops
+// instead: each key keeps its name where a path ends at it, and its value is transformed
+// in the scope of the paths that continue below it. Arrays and Sets add no key to a path,
+// so their items stay in the scope of their collection.
+
+function transformExcludedProperties(
+  source: Record<PropertyKey, unknown>,
+  result: Record<PropertyKey, unknown>,
+  state: ExcludeState,
+  depth: number,
+): void {
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const step = excludeStep(state, key);
+      const scope = stepScope(state, step);
+      setKey(
+        result,
+        step.keepKey ? key : transformKey(key, state.options.targetCase),
+        internalTransform(source[key], scope.options, scope.visitedRefs, depth),
+      );
+    }
+  }
+}
+
+function transformExcludedEntries(
+  source: ReadonlyMap<unknown, unknown>,
+  result: Map<unknown, unknown>,
+  state: ExcludeState,
+  depth: number,
+): void {
+  for (const [key, value] of source) {
+    const step = excludeStep(state, key);
+    const scope = stepScope(state, step);
+    result.set(
+      typeof key === 'string' && !step.keepKey
+        ? transformCase(key, state.options.targetCase)
+        : key,
+      internalTransform(value, scope.options, scope.visitedRefs, depth),
+    );
   }
 }

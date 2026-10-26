@@ -37,6 +37,7 @@ describe('pascalToCamelCase', () => {
 
   it('should lowercase only a one-letter first word before a capitalized word', () => {
     expect(pascalToCamelCase('XAxis')).toBe('xAxis');
+    expect(pascalToCamelCase('AValidUser')).toBe('aValidUser');
     expect(pascalToCamelCase('ETag')).toBe('eTag');
     expect(pascalToCamelCase('IPhone')).toBe('iPhone');
     expect(pascalToCamelCase('OAuth2Token')).toBe('oAuth2Token');

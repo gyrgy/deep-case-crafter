@@ -32,3 +32,18 @@ export function withOptions<T, O extends TransformOptions>(
 
 export const toPascalMap = <T,>(map: Map<string, T>) =>
   transform(map, { targetCase: 'pascal' });
+
+export function keepingMetadata<T>(data: T) {
+  return transform(data, { exclude: ['metadata.*'] });
+}
+
+export function excluding<T, E extends readonly string[]>(data: T, exclude: E) {
+  return transform(data, { exclude });
+}
+
+export function toCamelPageById<T>(page: {
+  items_by_id: Record<string, T>;
+  next_page: T;
+}) {
+  return transform(page, { exclude: ['items_by_id.*'] });
+}
