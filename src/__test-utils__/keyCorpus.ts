@@ -1,3 +1,5 @@
+import generateKeys from './generateKeys';
+
 /**
  * Realistic and tricky object keys for the type/runtime parity test, on top of the
  * exhaustively generated short keys.
@@ -138,4 +140,19 @@ export const KEY_CORPUS: readonly string[] = [
   // long
   'fetchUserProfileDataFromTheRemoteAPIEndpointThenCacheItLocally',
   'fetch_user_profile_data_from_the_remote_api_endpoint_then_cache_it_locally',
+];
+
+/**
+ * The keys of the parity tests: the corpus, and every short key built from a few kinds of
+ * characters (the case rules only look at a few neighbouring characters, so these cover
+ * every rule)
+ */
+export const PARITY_KEYS: readonly string[] = [
+  ...new Set([
+    ...KEY_CORPUS,
+    // Word boundaries, acronyms and plurals: lowercase, the letter s, uppercase, digit
+    ...generateKeys(['a', 's', 'A', '1'], 5),
+    // Separators and preserved keys
+    ...generateKeys(['a', 'A', '1', '_', '-'], 4),
+  ]),
 ];

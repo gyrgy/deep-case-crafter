@@ -1,7 +1,7 @@
 /**
  * Maximum number of converted object keys in one generation of a target case's cache.
- * A cache holds two generations (see `transformKey`), so dynamic keys (ids, hashes)
- * cannot grow it without bound.
+ * A cache holds two generations (see `transformObjectKey`), so dynamic keys (ids,
+ * hashes) cannot grow it without bound.
  */
 export const KEY_CACHE_LIMIT = 1000;
 

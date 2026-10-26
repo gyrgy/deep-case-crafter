@@ -4,6 +4,26 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-10-26
+
+### Added
+
+- `transformKey(key, options)` converts a single key by the same rules as `transform`,
+  with the same `targetCase` option and default:
+  `transformKey('userID', { targetCase: 'snake' })` returns `'user_id'`, typed
+  `'user_id'`. A string that is not a key in one of the four cases, such as
+  `'Hello World'`, `'USER_ID'` or a UUID, is returned unchanged. A key that is not a
+  string, or a target case passed in place of the options (`transformKey(key, 'snake')`),
+  throws a `TypeError`. See
+  [`transformKey`](https://github.com/gyrgy/deep-case-crafter#transformkeykey-options).
+- The type `TransformKey<Key, TargetCase>`: the key `Key` becomes in `TargetCase`. A
+  union of keys or of target cases gives the union of their results.
+- The type `TransformKeyOptions`, the options of `transformKey`. `TransformOptions`
+  extends it.
+- The type export `TransformKeyToEach`, which declaration files emitted for code around
+  `transformKey` refer to, such as a function with a fixed key and a generic target
+  case. Like `TransformResultFor`, it is not meant for direct use.
+
 ## [3.1.0] - 2026-10-26
 
 ### Added
@@ -214,6 +234,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[3.2.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.2.0
 [3.1.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.1.0
 [3.0.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.0.0
 [2.1.1]: https://www.npmjs.com/package/deep-case-crafter/v/2.1.1

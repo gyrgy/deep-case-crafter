@@ -6,7 +6,7 @@ import isSet from '../utils/isSet';
 import setKey from '../utils/setKey';
 import { ExcludeState, excludeStep, stepScope } from './excludePaths';
 import transformCase from './transformCase';
-import transformKey from './transformKey';
+import transformObjectKey from './transformObjectKey';
 
 /**
  * Recursively transforms data structures (objects, arrays, Maps, Sets) by changing their keys/property names
@@ -95,7 +95,7 @@ export default function internalTransform(
         if (Object.prototype.hasOwnProperty.call(source, key)) {
           setKey(
             result,
-            transformKey(key, options.targetCase),
+            transformObjectKey(key, options.targetCase),
             internalTransform(source[key], options, visitedRefs, nextDepth),
           );
         }
@@ -179,7 +179,7 @@ function transformExcludedProperties(
       const scope = stepScope(state, step);
       setKey(
         result,
-        step.keepKey ? key : transformKey(key, state.options.targetCase),
+        step.keepKey ? key : transformObjectKey(key, state.options.targetCase),
         internalTransform(source[key], scope.options, scope.visitedRefs, depth),
       );
     }

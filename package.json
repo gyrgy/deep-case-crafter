@@ -1,6 +1,6 @@
 {
   "name": "deep-case-crafter",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Convert object keys between camelCase, snake_case, kebab-case and PascalCase, deeply (objects, arrays, Map, Set), with exact TypeScript types",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -61,7 +61,7 @@
     "test-coverage": "npm test -- --coverage",
     "test:types": "tsc --noEmit",
     "tsc": "tsc --noEmit",
-    "test:dist-types": "tsc -p dist-type-tests && tsc -p dist-type-tests/tsconfig.declarations.json && tsc -p dist-type-tests/tsconfig.loose.json && tsc -p dist-type-tests/tsconfig.exact.json",
+    "test:dist-types": "tsc -p dist-type-tests && tsc -p dist-type-tests/tsconfig.declarations.json && node dist-type-tests/checkDeclarations.mjs && tsc -p dist-type-tests/tsconfig.consumer.json && tsc -p dist-type-tests/tsconfig.loose.json && tsc -p dist-type-tests/tsconfig.exact.json",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src/ --max-warnings=0 --no-cache",
     "lint:fix": "eslint --ext .js,.jsx,.ts,.tsx src/ --fix --max-warnings=0 --no-cache",
     "format": "prettier --write src dist-type-tests benchmark .github readme.md CHANGELOG.md SECURITY.md",

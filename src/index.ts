@@ -1,13 +1,20 @@
-// Export the main transform function as a named export.
+// Export the main transform function, and transformKey for a single key, as named exports.
 export { default as transform } from './transform/transform';
+export { default as transformKey } from './transform/transformKey';
 
 // Export minimal necessary types
+export type { TransformKey } from './types/keyTypes';
 export type { StringCase } from './types/stringCaseTypes';
-export type { TransformOptions } from './types/transformOptionTypes';
+export type {
+  TransformKeyOptions,
+  TransformOptions,
+} from './types/transformOptionTypes';
 export type { TransformResult } from './types/transformTypes';
 
 // Not meant to be used directly: exported so that declaration files of generic code
-// around `transform` can refer to them instead of expanding them without end
+// around `transform` and `transformKey` can refer to them instead of expanding them
+// without end
+export type { TransformKeyToEach } from './types/keyTypes';
 export type {
   TransformResultFor,
   TransformResultForExcluding,

@@ -39,6 +39,9 @@ const body = transform(user, { targetCase: 'snake' });
   returned untouched.
 - **Keys that are data keep their names**: UUIDs always, and any other key whose path
   you list in [`exclude`](#leaving-keys-unchanged), such as `'users_by_id.*'`.
+- **Single keys too**: [`transformKey`](#transformkeykey-options) converts one key by
+  the same rules, `transformKey('userID', { targetCase: 'snake' })` → `'user_id'`, typed
+  `'user_id'`.
 - No dependencies, with ES module and CommonJS builds.
 
 ## Installation
@@ -162,6 +165,24 @@ console.log(transform(strings, { targetCase: 'camel' }));
 
 ---
 
+### 7. Convert a single key with `transformKey`
+
+```typescript
+import { transformKey } from 'deep-case-crafter';
+
+transformKey('user_id'); // 'userId'
+transformKey('userID', { targetCase: 'snake' }); // 'user_id'
+
+type SortField = 'createdAt' | 'userID';
+
+function toSortParam(field: SortField) {
+  return transformKey(field, { targetCase: 'snake' });
+  //     ^? 'created_at' | 'user_id'
+}
+```
+
+---
+
 ## How it compares
 
 Checked in October 2026 against
@@ -191,8 +212,11 @@ Where the others are better or different:
   and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
   2.6 KB.
 - **More output**: ts-case-convert and es-toolkit also convert to SCREAMING_SNAKE_CASE,
-  and both have functions for single strings: `toSnake('userId')` and
-  `snakeCase('userId')` return `'user_id'`. deep-case-crafter has neither.
+  which deep-case-crafter does not.
+- **Single strings**: like `transformKey`, ts-case-convert's `toSnake('userId')` and
+  es-toolkit's `snakeCase('userId')` return `'user_id'`. es-toolkit's functions also
+  convert text, such as `'Hello World'` → `'hello_world'`, which `transformKey` returns
+  unchanged.
 - **Digits**: ts-case-convert separates digits by default (`addressLine1` →
   `address_line_1`), so `address_line_1` → `addressLine1` → `address_line_1`
   round-trips. Its `ts-case-convert/no-split-numbers` entry point keeps digits attached
@@ -358,6 +382,33 @@ type of the `exclude` paths, such as `['metadata.*']`.
   untouched when it has a `Symbol.toStringTag` (as every class implementing `Map` or
   `Set` does), and rebuilt as a plain object otherwise.
 
+### `transformKey(key, options)`
+
+Converts a single key by the same rules as the keys of `transform`'s result.
+
+- **key**: The key to transform, a string. Anything else throws a `TypeError`.
+- **options**:
+  - `targetCase` (optional): as for `transform` (default: `'camel'`). Pass it in an
+    object: `transformKey(key, 'snake')` throws a `TypeError`.
+
+```typescript
+transformKey('HTTPResponse', { targetCase: 'snake' }); // 'http_response'
+transformKey('Hello World', { targetCase: 'snake' }); // 'Hello World'
+```
+
+It converts names, not text: a string that is not a key in one of the four cases is
+returned unchanged, such as `'Hello World'`, `'USER_ID'`, `'_id'` or a UUID (see
+[Key Preservation Rules](#key-preservation-rules)).
+
+The result type is the converted key. A string literal gives a literal, a union of keys
+or of target cases gives the union of their results, and a `string` gives `string`.
+`TransformKey<Key, TargetCase>` names it: `TransformKey<'userID', 'snake'>` is
+`'user_id'`. Options that are not known exactly, such as an options object that may be
+`undefined`, give a wider type: `string`, or the key in any of the four cases.
+
+To use it in a callback, wrap it in a function:
+`keys.map((key) => transformKey(key, { targetCase: 'snake' }))`.
+
 ---
 
 ## Advanced: explicit output type overload
@@ -399,9 +450,9 @@ Trailing digits are kept but treated as part of the word, so they do **not** by
 themselves preserve a key — `address_1` becomes `address1`, and the single word
 `item2` stays `item2`.
 
-These rules apply to `Map` keys and to the result types as well. To keep other keys
-unchanged, such as IDs or the keys of free-form metadata, list their paths in
-[`exclude`](#leaving-keys-unchanged).
+These rules apply to `Map` keys, to `transformKey` and to the result types as well. To
+keep other keys unchanged, such as IDs or the keys of free-form metadata, list their
+paths in [`exclude`](#leaving-keys-unchanged).
 
 ---
 
@@ -442,8 +493,8 @@ deep-case-crafter follows [semantic versioning](https://semver.org). The v3 API 
 stable. Key outputs change only to fix bugs, and every change is listed in the
 [changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md): if you
 store converted keys, such as database columns, check it before upgrading. A minor
-version can add an option to `TransformOptions`, which `Required<TransformOptions>` then
-requires.
+version can add an option, which `Required<TransformOptions>` and
+`Required<TransformKeyOptions>` then require.
 
 ### Upgrading to v3
 

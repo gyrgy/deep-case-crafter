@@ -1,16 +1,16 @@
 import { runInNewContext } from 'node:vm';
 import { createExcludeState } from './excludePaths';
 import internalTransform from './internalTransform';
-import transformKey from './transformKey';
+import transformObjectKey from './transformObjectKey';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 
-jest.mock('./transformKey', () => {
-  const actual = jest.requireActual('./transformKey');
+jest.mock('./transformObjectKey', () => {
+  const actual = jest.requireActual('./transformObjectKey');
   return { __esModule: true, default: jest.fn(actual.default) };
 });
 
-const transformKeyMock = transformKey as jest.MockedFunction<
-  typeof transformKey
+const transformObjectKeyMock = transformObjectKey as jest.MockedFunction<
+  typeof transformObjectKey
 >;
 
 type CircularObject = {
@@ -65,12 +65,12 @@ describe('internalTransform', () => {
     });
 
     it('should convert Map keys without the key cache, and object keys with it', () => {
-      transformKeyMock.mockClear();
+      transformObjectKeyMock.mockClear();
       internalTransform(new Map([['user_id', 1]]), options);
-      expect(transformKeyMock).not.toHaveBeenCalled();
+      expect(transformObjectKeyMock).not.toHaveBeenCalled();
 
       internalTransform({ user_id: 1 }, options);
-      expect(transformKeyMock).toHaveBeenCalledWith('user_id', 'camel');
+      expect(transformObjectKeyMock).toHaveBeenCalledWith('user_id', 'camel');
     });
   });
 
@@ -382,7 +382,7 @@ describe('internalTransform', () => {
         [7, { first_name: 2 }],
         ['last_name', { first_name: 3, nick_name: 4 }],
       ]);
-      transformKeyMock.mockClear();
+      transformObjectKeyMock.mockClear();
       const result = transformExcluding(input, ['user_id', '*.first_name'], {
         targetCase: 'pascal',
       }) as Map<unknown, unknown>;
@@ -392,8 +392,14 @@ describe('internalTransform', () => {
         ['LastName', { first_name: 3, NickName: 4 }],
       ]);
       // Map keys are converted without the key cache, object keys with it
-      expect(transformKeyMock).not.toHaveBeenCalledWith('last_name', 'pascal');
-      expect(transformKeyMock).toHaveBeenCalledWith('nick_name', 'pascal');
+      expect(transformObjectKeyMock).not.toHaveBeenCalledWith(
+        'last_name',
+        'pascal',
+      );
+      expect(transformObjectKeyMock).toHaveBeenCalledWith(
+        'nick_name',
+        'pascal',
+      );
     });
 
     it('should transform own properties only, not inherited ones', () => {

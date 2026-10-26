@@ -4,7 +4,7 @@
  * its type includes it. The declarations themselves are checked as well.
  * Run with `npm run test:dist-types` after `npm run build`.
  */
-import { transform } from 'deep-case-crafter';
+import { transform, transformKey } from 'deep-case-crafter';
 import type { Equal, Expect } from './typeAssertions.js';
 
 const input = { user_id: 1, user_info: { first_name: 'x' } };
@@ -37,4 +37,14 @@ declare const maybeExclude: { exclude?: readonly ['user_info.*'] | undefined };
 const _maybeExcludeValue = transform(input, maybeExclude);
 export type _maybeExclude = Expect<
   Equal<typeof _maybeExcludeValue, Camel | UserInfoKept>
+>;
+
+// transformKey accepts a targetCase set to undefined as well
+const _keyUndefinedValue = transformKey('user_id', { targetCase: undefined });
+export type _keyUndefined = Expect<Equal<typeof _keyUndefinedValue, 'userId'>>;
+
+declare const maybeSnake: { targetCase?: 'snake' | undefined };
+const _keyMaybeValue = transformKey('userId', maybeSnake);
+export type _keyMaybe = Expect<
+  Equal<typeof _keyMaybeValue, 'user_id' | 'userId'>
 >;

@@ -5,7 +5,13 @@
  * out of memory.
  * Run with `npm run test:dist-types` after `npm run build`.
  */
-import { transform, type TransformOptions } from 'deep-case-crafter';
+import {
+  transform,
+  transformKey,
+  type StringCase,
+  type TransformKeyOptions,
+  type TransformOptions,
+} from 'deep-case-crafter';
 
 export function toCamel<T>(data: T) {
   return transform(data);
@@ -46,4 +52,38 @@ export function toCamelPageById<T>(page: {
   next_page: T;
 }) {
   return transform(page, { exclude: ['items_by_id.*'] });
+}
+
+export function toSnakeKey<K extends string>(key: K) {
+  return transformKey(key, { targetCase: 'snake' });
+}
+
+export function keyToCase<K extends string, C extends StringCase>(
+  key: K,
+  targetCase: C,
+) {
+  return transformKey(key, { targetCase });
+}
+
+export function keyWithOptions<K extends string, O extends TransformKeyOptions>(
+  key: K,
+  options: O,
+) {
+  return transformKey(key, options);
+}
+
+export const toKebabKeys = <K extends string>(keys: readonly K[]) =>
+  keys.map((key) => transformKey(key, { targetCase: 'kebab' }));
+
+// A fixed key with a generic target case: the key type is written in terms of
+// TransformKeyToEach (see consumer.mts, which checks the declarations written here)
+export function createdByIdIn<C extends StringCase>(targetCase: C) {
+  return transformKey('created_by_id', { targetCase });
+}
+
+export function sortParam<C extends StringCase>(
+  field: 'createdAt' | 'updatedByUser',
+  targetCase: C,
+) {
+  return transformKey(field, { targetCase });
 }

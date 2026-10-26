@@ -2,15 +2,20 @@ import type { ExcludeState } from '../transform/excludePaths';
 import { PlainCase, StringCase } from './stringCaseTypes';
 
 /**
- * Options for the transform function
+ * Options for the transformKey function. The transform function takes them as well.
  */
-export interface TransformOptions {
+export interface TransformKeyOptions {
   /**
    * The target casing format to transform to
    * @default 'camel'
    */
   targetCase?: StringCase | undefined;
+}
 
+/**
+ * Options for the transform function
+ */
+export interface TransformOptions extends TransformKeyOptions {
   /**
    * How many nesting levels to transform: `1` transforms only the top-level keys, `2`
    * also the keys one level down, and so on. The values of objects, Maps and Sets are one
@@ -66,14 +71,27 @@ export interface TransformOptionsInternal {
 }
 
 /**
- * Rejects option names `transform` does not know. The options object is inferred as a
- * whole, so without this an object literal would accept any extra property, typos such
- * as `depht` included. The error names the unknown option.
+ * Rejects option names that are not in `Known` (by default, the options of `transform`).
+ * The options object is inferred as a whole, so without this an object literal would
+ * accept any extra property, typos such as `depht` included. The error names the
+ * unknown option.
  */
-export type NoUnknownOptions<Options> = {
-  [K in Exclude<keyof Options, keyof TransformOptions>]: `Unknown option: ${K &
-    string}`;
+export type NoUnknownOptions<Options, Known = TransformOptions> = {
+  [K in Exclude<keyof Options, keyof Known>]: `Unknown option: ${K & string}`;
 };
+
+/**
+ * `NoUnknownOptions` for `transformKey`, but `unknown` when every option name is known.
+ * The options parameter is then `TransformKeyOptions` itself rather than an
+ * intersection, so TypeScript checks the argument for a property in common with it, as
+ * it does for every type whose properties are all optional: `'snake'`, an array, or a
+ * stored options object with only a misspelled option is rejected.
+ */
+export type NoUnknownKeyOptions<Options> = [
+  Exclude<keyof Options, keyof TransformKeyOptions>,
+] extends [never]
+  ? unknown
+  : NoUnknownOptions<Options, TransformKeyOptions>;
 
 /** `To` as a plain case literal, or `'camel'` (the default) for `undefined` */
 type CaseOrDefault<To> = To extends undefined ? 'camel' : PlainCase<To>;
