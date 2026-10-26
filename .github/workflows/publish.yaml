@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # npm trusted publishing: npm exchanges this job's OIDC token for a short-lived one
+      packages: write
       id-token: write
 
     steps:
@@ -20,8 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          # Trusted publishing needs npm 11.5.1 or later, included from Node 24.5.0
-          node-version: '24'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Install Dependencies
@@ -62,6 +61,7 @@ jobs:
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.exact.json
 
       - name: Publish to npm
-        # Trusted publishing: no stored token. npm adds provenance, which links the
-        # published package to this workflow run and commit.
-        run: npm publish
+        # --provenance links the published package to this workflow run and commit
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
