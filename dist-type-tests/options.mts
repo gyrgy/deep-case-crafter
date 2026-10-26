@@ -3,7 +3,11 @@
  * unions of options objects and stored options objects.
  * Run with `npm run test:dist-types` after `npm run build`.
  */
-import { transform, type TransformOptions } from 'deep-case-crafter';
+import {
+  transform,
+  transformKey,
+  type TransformOptions,
+} from 'deep-case-crafter';
 import type { Equal, Expect } from './typeAssertions.js';
 
 enum KeyCase {
@@ -197,3 +201,35 @@ transform<typeof input, 'snake', 'camel'>(input, {
 declare const someAnyTarget: { targetCase: any } | { depth: 1 };
 const _someAnyTargetValue = transform(input, someAnyTarget);
 export type _someAnyTarget = Expect<Equal<typeof _someAnyTargetValue, unknown>>;
+
+// transformKey takes the same kinds of options
+const _keyEnumValue = transformKey('userId', { targetCase: KeyCase.Snake });
+export type _keyEnum = Expect<Equal<typeof _keyEnumValue, 'user_id'>>;
+
+const _keyBrandedValue = transformKey('userId', { targetCase: brandedCase });
+export type _keyBranded = Expect<Equal<typeof _keyBrandedValue, 'user_id'>>;
+
+const _keyEnumWideValue = transformKey('userId', enumOptions);
+export type _keyEnumWide = Expect<
+  Equal<typeof _keyEnumWideValue, 'userId' | 'user_id' | 'user-id' | 'UserId'>
+>;
+
+const keyPresets = { api: { targetCase: 'snake' }, ui: {} } as const;
+declare const keyPreset: keyof typeof keyPresets;
+const _keyPresetValue = transformKey('userId', keyPresets[keyPreset]);
+export type _keyPreset = Expect<
+  Equal<typeof _keyPresetValue, 'user_id' | 'userId'>
+>;
+
+// The presets of transform above include one with only a depth, which transformKey
+// does not take
+// @ts-expect-error { depth: 1 } shares no option with transformKey
+transformKey('userId', presets[preset]);
+
+declare const keyUnionOptions:
+  | { targetCase: 'snake' }
+  | { targetCase: 'kebab' };
+const _keyUnionOptionsValue = transformKey('userId', keyUnionOptions);
+export type _keyUnionOptions = Expect<
+  Equal<typeof _keyUnionOptionsValue, 'user_id' | 'user-id'>
+>;

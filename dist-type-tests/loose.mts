@@ -3,7 +3,7 @@
  * without `strictNullChecks`, where `undefined` and `null` are assignable to every type).
  * Run with `npm run test:dist-types` after `npm run build`.
  */
-import { transform } from 'deep-case-crafter';
+import { transform, transformKey } from 'deep-case-crafter';
 import type { Equal, Expect } from './typeAssertions.js';
 
 const input = { user_id: 1, tags: ['a'], user_info: { first_name: 'x' } };
@@ -97,4 +97,13 @@ export type _optionalExclude = Expect<
     typeof _optionalExcludeValue,
     Camel | { userId: number; tags: string[]; userInfo: { first_name: string } }
   >
+>;
+
+// transformKey: the same rules, and an optional targetCase may also be omitted
+const _keyValue = transformKey('user_id');
+export type _key = Expect<Equal<typeof _keyValue, 'userId'>>;
+
+const _keyOptionalTargetValue = transformKey('userId', maybeKebab);
+export type _keyOptionalTarget = Expect<
+  Equal<typeof _keyOptionalTargetValue, 'user-id' | 'userId'>
 >;

@@ -8,7 +8,7 @@ import {
 } from './charTypes';
 import type { ACRONYM_PLURAL_SUFFIX } from '../constants/acronymPlural';
 import { IsStringLiteral } from './helperTypes';
-import { StringCase } from './stringCaseTypes';
+import { PlainCase, StringCase } from './stringCaseTypes';
 
 /**
  * Type-level mirror of the runtime key transformation (`transformCase`).
@@ -215,10 +215,10 @@ type TransformDetectedKey<
     : K;
 
 /**
- * The key a string key `K` becomes when transformed to `To`. A `string` or
+ * One key `K` (not a union) transformed to one plain target case `To`. A `string` or
  * template-literal key cannot be known exactly, so it becomes `string`.
  */
-export type TransformKey<K extends string, To extends StringCase> =
+type TransformOneKey<K extends string, To extends StringCase> =
   IsStringLiteral<K> extends false
     ? string
     : K extends ''
@@ -226,3 +226,34 @@ export type TransformKey<K extends string, To extends StringCase> =
       : IsPreservedKey<K> extends true
         ? K
         : TransformDetectedKey<K, DetectedCase<K>, To>;
+
+/**
+ * One key `K` transformed to each member of a union of plain target cases `To`.
+ *
+ * Use `TransformKey` instead. This type is exported only so that declaration files can
+ * refer to it: for a fixed key and a generic target case, as in
+ * `<C extends StringCase>(targetCase: C) => transformKey('created_by_id', { targetCase })`,
+ * the key type is written in terms of it. Without a name to refer to, the compiler
+ * writes out its recursive steps, and gets them wrong.
+ */
+export type TransformKeyToEach<
+  K extends string,
+  To extends StringCase,
+> = To extends StringCase ? TransformOneKey<K, To> : never;
+
+/**
+ * The key a string key `K` becomes when transformed to `To` (default `'camel'`), as
+ * `transformKey` returns it. A `string` or template-literal key cannot be known exactly,
+ * so it becomes `string`. A union of keys or of target cases gives the union of their
+ * results, and a string enum member or branded literal stands for its case.
+ *
+ * @example
+ * ```typescript
+ * type Column = TransformKey<'createdAt' | 'userID', 'snake'>;
+ * // => 'created_at' | 'user_id'
+ * ```
+ */
+export type TransformKey<
+  K extends string,
+  To extends StringCase = 'camel',
+> = K extends string ? TransformKeyToEach<K, PlainCase<To>> : never;

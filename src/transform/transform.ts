@@ -1,6 +1,5 @@
 import { createExcludeState } from './excludePaths';
 import internalTransform from './internalTransform';
-import { STRING_CASES } from '../constants/stringCases';
 import { IsAny } from '../types/helperTypes';
 import { StringCase } from '../types/stringCaseTypes';
 import {
@@ -14,7 +13,7 @@ import {
   TransformResultFor,
 } from '../types/transformTypes';
 import describeValue from '../utils/describeValue';
-import isStringCase from '../utils/isStringCase';
+import resolveTargetCase from '../utils/resolveTargetCase';
 
 /**
  * Transforms the keys of `data` to camelCase, at every nesting level.
@@ -107,15 +106,11 @@ function transform<T, K>(
 
 // Implementation
 function transform(data: unknown, options?: TransformOptions): unknown {
-  const targetCase = options?.targetCase || 'camel';
+  const targetCaseOption = options?.targetCase;
   const depth = options?.depth ?? Infinity;
 
   // Plain JavaScript callers can pass anything; reject it before any key is converted
-  if (!isStringCase(targetCase)) {
-    throw new TypeError(
-      `Unsupported targetCase ${describeValue(targetCase)}. Use one of: ${STRING_CASES.join(', ')}.`,
-    );
-  }
+  const targetCase = resolveTargetCase(targetCaseOption);
   if (typeof depth !== 'number' || Number.isNaN(depth)) {
     throw new TypeError(
       `Unsupported depth ${describeValue(depth)}. Use a number, or omit depth to transform every level.`,

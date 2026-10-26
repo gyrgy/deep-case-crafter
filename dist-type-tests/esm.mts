@@ -5,7 +5,10 @@
  */
 import {
   transform,
+  transformKey,
   type StringCase,
+  type TransformKey,
+  type TransformKeyOptions,
   type TransformOptions,
   type TransformResult,
 } from 'deep-case-crafter';
@@ -82,3 +85,26 @@ export const options: TransformOptions = {
   exclude: ['metadata.*'],
 };
 export const targetCase: StringCase = 'camel';
+
+// One key, transformed and typed like the keys of transform's result
+const _keyValue = transformKey('userID', { targetCase: 'snake' });
+export type _key = Expect<Equal<typeof _keyValue, 'user_id'>>;
+
+const _keyDefaultValue = transformKey('user_id');
+export type _keyDefault = Expect<Equal<typeof _keyDefaultValue, 'userId'>>;
+
+declare const field: 'createdAt' | 'userID';
+const _keyUnionValue = transformKey(field, { targetCase: 'kebab' });
+export type _keyUnion = Expect<
+  Equal<typeof _keyUnionValue, 'created-at' | 'user-id'>
+>;
+
+export type _keyNamed = Expect<
+  Equal<
+    TransformKey<'HTTPResponse' | 'XAxis', 'snake'>,
+    'http_response' | 'x_axis'
+  >
+>;
+
+export const keyOptions: TransformKeyOptions = { targetCase: 'kebab' };
+export const allOptions: TransformOptions = { ...keyOptions, depth: 1 };

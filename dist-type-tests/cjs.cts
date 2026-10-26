@@ -19,3 +19,10 @@ export type _named = Expect<
 >;
 
 export const options: dcc.TransformOptions = { depth: 2 };
+
+const _keyValue = dcc.transformKey('user_id', { targetCase: 'kebab' });
+export type _key = Expect<Equal<typeof _keyValue, 'user-id'>>;
+
+export type _keyNamed = Expect<
+  Equal<dcc.TransformKey<'user_id', 'pascal'>, 'UserId'>
+>;

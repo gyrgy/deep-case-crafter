@@ -58,6 +58,8 @@ jobs:
         run: |
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          node dist-type-tests/checkDeclarations.mjs
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.consumer.json
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.loose.json
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.exact.json
 
@@ -66,5 +68,7 @@ jobs:
         run: |
           npx --yes --package typescript@7 -- tsc -p dist-type-tests
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          node dist-type-tests/checkDeclarations.mjs
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.consumer.json
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.loose.json
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.exact.json

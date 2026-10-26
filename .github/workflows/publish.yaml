@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      # npm trusted publishing: npm exchanges this job's OIDC token for a short-lived one
       id-token: write
 
     steps:
@@ -20,7 +20,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          # Trusted publishing needs npm 11.5.1 or later, included from Node 24.5.0
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Install Dependencies
@@ -45,6 +46,8 @@ jobs:
         run: |
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          node dist-type-tests/checkDeclarations.mjs
+          npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.consumer.json
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.loose.json
           npx --yes --package typescript@4.7.4 -- tsc -p dist-type-tests/tsconfig.exact.json
 
@@ -53,11 +56,12 @@ jobs:
         run: |
           npx --yes --package typescript@7 -- tsc -p dist-type-tests
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.declarations.json
+          node dist-type-tests/checkDeclarations.mjs
+          npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.consumer.json
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.loose.json
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.exact.json
 
       - name: Publish to npm
-        # --provenance links the published package to this workflow run and commit
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Trusted publishing: no stored token. npm adds provenance, which links the
+        # published package to this workflow run and commit.
+        run: npm publish
