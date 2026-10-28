@@ -1,6 +1,7 @@
 import { EXCLUDE_PATH_REGEX } from '../constants/regex';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 import describeValue from '../utils/describeValue';
+import type { ReferenceTable } from './referenceTables';
 
 /**
  * The options a value is transformed with, and the results of the objects already
@@ -8,7 +9,7 @@ import describeValue from '../utils/describeValue';
  */
 export interface TransformScope {
   readonly options: TransformOptionsInternal;
-  readonly visitedRefs: WeakMap<object, unknown>[];
+  readonly visitedRefs: ReferenceTable[];
 }
 
 /** What the `exclude` paths do with one key, and with the value under it */
@@ -102,10 +103,11 @@ function createState(
     named.set(key, createStep(anyKey.length ? [...rests, ...anyKey] : rests));
   }
 
-  const { targetCase, depth } = root.plain.options;
+  const { targetCase, depth, keepReferences } = root.plain.options;
   const options: TransformOptionsInternal = {
     targetCase,
     depth,
+    keepReferences,
     exclude: null,
   };
   const state: ExcludeState = {

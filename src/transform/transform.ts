@@ -1,5 +1,5 @@
 import { createExcludeState } from './excludePaths';
-import internalTransform from './internalTransform';
+import internalTransform, { NESTING_LIMIT_REACHED } from './internalTransform';
 import { IsAny } from '../types/helperTypes';
 import { StringCase } from '../types/stringCaseTypes';
 import {
@@ -81,7 +81,7 @@ function transform<
  *
  * @deprecated `sourceCase` has no effect: leave out the type arguments and `sourceCase`,
  * and the result type is inferred, `depth` and `exclude` included. This form does not
- * accept `depth` or `exclude`.
+ * accept `depth`, `exclude` or `keepReferences`.
  */
 function transform<T, From extends StringCase, To extends StringCase>(
   data: T,
@@ -117,12 +117,40 @@ function transform(data: unknown, options?: TransformOptions): unknown {
     );
   }
 
-  const internalOptions: TransformOptionsInternal = {
-    targetCase,
-    depth,
-    exclude: null,
-  };
   const exclude = options?.exclude;
+  const keepReferences = options?.keepReferences ?? true;
+  if (typeof keepReferences !== 'boolean') {
+    throw new TypeError(
+      `Unsupported keepReferences ${describeValue(keepReferences)}. Use true or false.`,
+    );
+  }
+
+  if (!keepReferences) {
+    try {
+      return run(
+        data,
+        { targetCase, depth, keepReferences, exclude: null },
+        exclude,
+      );
+    } catch (error) {
+      // Nested too deep to go on without reference tables, as circular references are:
+      // start over with them
+      if (error !== NESTING_LIMIT_REACHED) throw error;
+    }
+  }
+  return run(
+    data,
+    { targetCase, depth, keepReferences: true, exclude: null },
+    exclude,
+  );
+}
+
+/** Transforms `data` with the resolved options and the `exclude` option as passed */
+function run(
+  data: unknown,
+  internalOptions: TransformOptionsInternal,
+  exclude: unknown,
+): unknown {
   const excludeState =
     exclude === undefined ? null : createExcludeState(exclude, internalOptions);
 

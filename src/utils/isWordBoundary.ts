@@ -1,7 +1,9 @@
 import { ACRONYM_PLURAL_SUFFIX } from '../constants/acronymPlural';
-import isDigit from './charDetectors/isDigit';
-import isLowerCaseLetter from './charDetectors/isLowerCaseLetter';
-import isUpperCaseLetter from './charDetectors/isUpperCaseLetter';
+import isDigitCode from './charDetectors/isDigitCode';
+import isLowerCaseCode from './charDetectors/isLowerCaseCode';
+import isUpperCaseCode from './charDetectors/isUpperCaseCode';
+
+const PLURAL_SUFFIX_CODE = ACRONYM_PLURAL_SUFFIX.charCodeAt(0);
 
 /**
  * Checks whether a new word starts at `index` of a camelCase or PascalCase string.
@@ -18,7 +20,7 @@ import isUpperCaseLetter from './charDetectors/isUpperCaseLetter';
  * and `pascalToCamelCase`, and mirrored by `IsWordBoundary` in `types/keyTypes.ts`.
  *
  * @param str - The camelCase or PascalCase string
- * @param index - The position to check
+ * @param index - The position to check, from 1
  * @returns `true` if a new word starts at `index`
  *
  * @example
@@ -31,17 +33,16 @@ import isUpperCaseLetter from './charDetectors/isUpperCaseLetter';
  * @internal This function is for internal use by the library
  */
 export default function isWordBoundary(str: string, index: number): boolean {
-  if (!isUpperCaseLetter(str[index] ?? '')) return false;
+  if (!isUpperCaseCode(str.charCodeAt(index))) return false;
 
-  const prev = str[index - 1] ?? '';
-  if (isLowerCaseLetter(prev) || isDigit(prev)) return true;
+  const prev = str.charCodeAt(index - 1);
+  if (isLowerCaseCode(prev) || isDigitCode(prev)) return true;
 
-  const startsWordAfterCapital =
-    isUpperCaseLetter(prev) && isLowerCaseLetter(str[index + 1] ?? '');
-  if (!startsWordAfterCapital) return false;
+  const next = str.charCodeAt(index + 1);
+  if (!isUpperCaseCode(prev) || !isLowerCaseCode(next)) return false;
 
-  const isPluralSuffix =
-    str[index + 1] === ACRONYM_PLURAL_SUFFIX &&
-    !isLowerCaseLetter(str[index + 2] ?? '');
-  return !isPluralSuffix;
+  // `URLs`, `IDs`: an `s` after an acronym is its plural, unless a word goes on after it
+  return (
+    next !== PLURAL_SUFFIX_CODE || isLowerCaseCode(str.charCodeAt(index + 2))
+  );
 }

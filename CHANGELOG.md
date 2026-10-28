@@ -4,6 +4,47 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-10-28
+
+### Added
+
+- The `keepReferences` option. `keepReferences: false` skips the bookkeeping that keeps
+  shared and circular references in shape, for data that has none, such as the output of
+  `JSON.parse`: inputs with many objects and arrays convert up to about twice as fast
+  (1 million records: 1.0 s instead of 2.0 s). An object is then copied once for every
+  path that leads to it. Data with more than 256 nested objects, arrays, Maps and Sets on
+  one path, as circular references always have, is converted again from the start with
+  the bookkeeping; with a finite `depth`, circular references are copied down to the
+  depth limit instead. Anything but a boolean throws a `TypeError`.
+- Readme: a [Limits](https://github.com/gyrgy/deep-case-crafter#limits) section with the
+  measured nesting depth and memory use.
+
+### Changed
+
+- Faster, with the same results (measured with Node 24 on an Apple M4 Pro):
+  - Large inputs: 1 million records with 30 million keys convert in 2.0 s instead of
+    3.5 s. References are tracked in a `Map` instead of a `WeakMap`.
+  - Keys seen only once, such as the keys of a large lookup object: about 1.9x faster.
+  - Arrays of numbers or strings: about 1.7x faster. Items that are not objects are
+    copied without a function call.
+  - Typical API payloads: 5-14% faster.
+  - A key's case is detected in one pass over its characters, without regular
+    expressions.
+- Nesting limits are a little lower, as the stack frames grew: on the first call in a
+  process, for example, 2,389 levels of nested objects instead of 2,486, and 1,328 of
+  nested Maps instead of 1,390. The Limits section lists them.
+- `TransformOptions` includes `keepReferences`, so code that types a complete options
+  object as `Required<TransformOptions>` has to add it.
+
+### Fixed
+
+- Converting more than about 22 million objects and arrays in one call aborted the
+  process with V8's fatal "invalid table size" error, which could not be caught.
+  23 million one-key objects now convert in 6.9 s.
+- Data nested too deeply for the call stack threw a `SyntaxError` ("Invalid regular
+  expression: … Stack overflow") on the first call in a process. It now throws a
+  `RangeError`, as later calls did.
+
 ## [3.2.0] - 2026-10-26
 
 ### Added
@@ -234,6 +275,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[3.3.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.3.0
 [3.2.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.2.0
 [3.1.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.1.0
 [3.0.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.0.0

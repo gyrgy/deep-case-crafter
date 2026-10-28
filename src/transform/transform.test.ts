@@ -565,4 +565,128 @@ describe('transform (recursive)', () => {
       ).toThrow(TypeError);
     });
   });
+
+  describe('keepReferences', () => {
+    it('should copy shared objects with keepReferences: false', () => {
+      const shared = { first_name: 'Ann' };
+      const result = transform(
+        { a_user: shared, b_user: shared },
+        { keepReferences: false },
+      );
+      expect(result).toEqual({
+        aUser: { firstName: 'Ann' },
+        bUser: { firstName: 'Ann' },
+      });
+      expect(result.aUser).not.toBe(result.bUser);
+    });
+
+    it('should give tree-shaped data the same result either way', () => {
+      const data = {
+        user_list: [
+          {
+            user_id: 1,
+            tag_set: new Set(['a_b', { c_d: 1 }]),
+            meta_map: new Map([['k_k', { v_v: [1, null, 'x'] }]]),
+            created_at: new Date(0),
+          },
+        ],
+      };
+      expect(transform(data, { keepReferences: false })).toEqual(
+        transform(data),
+      );
+      expect(
+        transform(data, {
+          keepReferences: false,
+          depth: 2,
+          targetCase: 'kebab',
+        }),
+      ).toEqual(transform(data, { depth: 2, targetCase: 'kebab' }));
+    });
+
+    it('should start over with the bookkeeping for circular references', () => {
+      const node: Record<string, unknown> = { node_id: 1 };
+      node.self_ref = node;
+      node.child_list = [node];
+      const result = transform(node, { keepReferences: false }) as Record<
+        string,
+        unknown
+      >;
+      expect(result.nodeId).toBe(1);
+      expect(result.selfRef).toBe(result);
+      expect((result.childList as unknown[])[0]).toBe(result);
+    });
+
+    it('should start over for data nested more than 256 levels deep, reading its getters again', () => {
+      let reads = 0;
+      let deep: unknown = { leaf_value: 1 };
+      for (let i = 0; i < 300; i++) deep = { next_level: deep };
+      const data = {
+        get top_value() {
+          reads++;
+          return 'x';
+        },
+        deep_data: deep,
+      };
+
+      const result = transform(data, { keepReferences: false }) as {
+        topValue: string;
+        deepData: unknown;
+      };
+      let level = result.deepData as { nextLevel?: unknown };
+      for (let i = 0; i < 300; i++) level = level.nextLevel as typeof level;
+      expect(level).toEqual({ leafValue: 1 });
+      expect(result.topValue).toBe('x');
+      expect(reads).toBe(2);
+    });
+
+    it('should apply keepReferences: false below exclude paths', () => {
+      const shared = { k_k: 1 };
+      const result = transform(
+        { meta_data: { a_a: shared, b_b: shared } },
+        { exclude: ['meta_data.*'], keepReferences: false },
+      ) as { metaData: { a_a: unknown; b_b: unknown } };
+      expect(result.metaData.a_a).toEqual({ kK: 1 });
+      expect(result.metaData.a_a).not.toBe(result.metaData.b_b);
+    });
+
+    it('should keep references when keepReferences is null, as when it is omitted', () => {
+      const shared = { k_k: 1 };
+      const result = transform(
+        { a_a: shared, b_b: shared },
+        { keepReferences: null as unknown as boolean },
+      );
+      expect(result.aA).toBe(result.bB);
+    });
+
+    it('should reject a keepReferences that is not a boolean', () => {
+      const cases = [
+        ['no', '"no"'],
+        [0, '0'],
+        [{}, '[object Object]'],
+      ] as const;
+      for (const [value, description] of cases) {
+        expect(() =>
+          transform(
+            { user_id: 1 },
+            { keepReferences: value as unknown as boolean },
+          ),
+        ).toThrow(
+          new TypeError(
+            `Unsupported keepReferences ${description}. Use true or false.`,
+          ),
+        );
+      }
+    });
+
+    it('should not swallow other errors with keepReferences: false', () => {
+      const data = {
+        get bad_key(): number {
+          throw new Error('getter failed');
+        },
+      };
+      expect(() => transform(data, { keepReferences: false })).toThrow(
+        'getter failed',
+      );
+    });
+  });
 });

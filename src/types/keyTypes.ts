@@ -28,7 +28,7 @@ type HasOnlyKeyChars<S extends string> = S extends `${infer C}${infer Rest}`
     : false
   : true;
 
-/** The canonical UUID form, where `x` stands for a hexadecimal digit (`UUID_REGEX`) */
+/** The canonical UUID form, where `x` stands for a hexadecimal digit (`isUuid`) */
 type UuidPattern = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
 
 /**
@@ -50,7 +50,7 @@ type IsUuid<
     : false;
 
 /**
- * Keys the runtime leaves unchanged (`prepareStringTransformation`): keys containing a
+ * Keys the runtime leaves unchanged (`transformCase`): keys containing a
  * character outside `A-Z a-z 0-9 _ -`, keys not starting with a letter, keys ending with
  * a separator, and UUIDs. A UUID that starts with a digit is already preserved, so only
  * keys that the other rules do not preserve are compared with the UUID form.
@@ -65,7 +65,7 @@ type IsPreservedKey<K extends string> =
       : true;
 
 /**
- * The case the runtime detects for a key that is not preserved (`detectStringCase`), or
+ * The case the runtime detects for a key that is not preserved (`transformCase`), or
  * `'none'` when it cannot be detected (the key is then left unchanged). A string is used
  * rather than `null`, which every type accepts without `strictNullChecks`.
  */
@@ -86,7 +86,7 @@ type DetectedCase<K extends string> = K extends `${string}${Separator}${string}`
       : First extends LowerLetter
         ? 'camel'
         : K extends Uppercase<K>
-          ? 'none' // written only in capitals (`ID`, `USD`): not PascalCase (`isPascalCase`)
+          ? 'none' // written only in capitals (`ID`, `USD`): not PascalCase (`transformCase`)
           : 'pascal'
     : 'none';
 
@@ -153,7 +153,7 @@ type PascalToCamelCase<
     : PascalToCamelCase<Rest, C, `${Acc}${Lowercase<C>}`>
   : Acc;
 
-/** snake_case/kebab-case to camelCase (`snakeToCamelCase`, `kebabToCamelCase`) */
+/** snake_case/kebab-case to camelCase (`separatedToCamelCase`) */
 type SeparatedToCamelCase<
   S extends string,
   Sep extends Separator,
@@ -162,7 +162,7 @@ type SeparatedToCamelCase<
   ? SeparatedToCamelCase<Rest, Sep, `${Acc}${Word}${Uppercase<Next>}`>
   : `${Acc}${S}`;
 
-/** Replaces every `From` separator with `To` (`snakeToKebabCase`, `kebabToSnakeCase`) */
+/** Replaces every `From` separator with `To` (`replaceSeparator`) */
 type ReplaceSeparator<
   S extends string,
   From extends Separator,
@@ -172,7 +172,7 @@ type ReplaceSeparator<
   ? ReplaceSeparator<Rest, From, To, `${Acc}${Head}${To}`>
   : `${Acc}${S}`;
 
-/** A single word in the target case (`transformSingleWord`) */
+/** A single word in the target case (`singleWordToCase`) */
 type SingleWordToCase<
   K extends string,
   To extends StringCase,
@@ -182,7 +182,7 @@ type SingleWordToCase<
     ? Uncapitalize<K>
     : Lowercase<K>;
 
-/** A key of the detected case `From` in the target case (`formatterMap`) */
+/** A key of the detected case `From` in the target case (the formatters `transformCase` picks) */
 type FormatKey<
   K extends string,
   From extends StringCase,

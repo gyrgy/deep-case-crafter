@@ -1,6 +1,6 @@
 {
   "name": "deep-case-crafter",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Convert object keys between camelCase, snake_case, kebab-case and PascalCase, deeply (objects, arrays, Map, Set), with exact TypeScript types",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

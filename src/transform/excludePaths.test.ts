@@ -10,6 +10,7 @@ describe('excludePaths', () => {
   const options: TransformOptionsInternal = {
     targetCase: 'snake',
     depth: 3,
+    keepReferences: true,
     exclude: null,
   };
 

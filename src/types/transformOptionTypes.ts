@@ -46,6 +46,24 @@ export interface TransformOptions extends TransformKeyOptions {
   exclude?: readonly string[] | undefined;
 
   /**
+   * Whether an object reached through several references gives one result, as in the
+   * input: shared objects stay shared, and circular references point back into the
+   * result. Pass `false` for data that cannot contain such references, such as the
+   * output of `JSON.parse`: the transform then skips this bookkeeping, which makes inputs
+   * with many objects and arrays up to about twice as fast.
+   *
+   * Use it only for tree-shaped data. An object is then copied once for every path that
+   * leads to it, so shared objects inside shared objects multiply. Data with more than
+   * 256 nested objects, arrays, Maps and Sets on one path, as circular references always
+   * have, is converted again from the start with the bookkeeping, so it takes longer and
+   * getters can run twice. With a finite `depth`, circular references stop at the depth
+   * limit before that, and are copied once per path down to it.
+   *
+   * @default true
+   */
+  keepReferences?: boolean | undefined;
+
+  /**
    * @deprecated Has no effect. Every key's case is detected from the key itself, both at
    * runtime and in the result type, so there is nothing to declare.
    */
@@ -62,6 +80,9 @@ export interface TransformOptionsInternal {
 
   /** How many nesting levels to transform (`Infinity` for all of them) */
   depth: number;
+
+  /** Whether shared and circular references are kept (see `TransformOptions`) */
+  keepReferences: boolean;
 
   /**
    * The `exclude` paths that match the keys leading to the value being transformed, or

@@ -83,7 +83,17 @@ export const options: TransformOptions = {
   targetCase: 'pascal',
   depth: 3,
   exclude: ['metadata.*'],
+  keepReferences: false,
 };
+
+// keepReferences does not change the result type
+const _keepReferencesValue = transform(
+  { user_info: { first_name: 'x' } },
+  { keepReferences: false },
+);
+export type _keepReferences = Expect<
+  Equal<typeof _keepReferencesValue, { userInfo: { firstName: string } }>
+>;
 export const targetCase: StringCase = 'camel';
 
 // One key, transformed and typed like the keys of transform's result

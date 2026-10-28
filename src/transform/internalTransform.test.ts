@@ -1,7 +1,8 @@
 import { runInNewContext } from 'node:vm';
 import { createExcludeState } from './excludePaths';
-import internalTransform from './internalTransform';
+import internalTransform, { NESTING_LIMIT_REACHED } from './internalTransform';
 import transformObjectKey from './transformObjectKey';
+import { UNTRACKED_NESTING_LIMIT } from '../constants/referenceTables';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 
 jest.mock('./transformObjectKey', () => {
@@ -21,6 +22,7 @@ describe('internalTransform', () => {
   const options: TransformOptionsInternal = {
     targetCase: 'camel',
     depth: Infinity,
+    keepReferences: true,
     exclude: null,
   };
 
@@ -108,6 +110,20 @@ describe('internalTransform', () => {
     expect(result[4]).toBe(123);
     expect(result[5]).toBeNull();
     expect(result[6]).toEqual([{ aB: 3 }]);
+  });
+
+  it('should turn the holes of an array into undefined', () => {
+    // eslint-disable-next-line no-sparse-arrays
+    const result = internalTransform([1, , { a_b: 1 }], options) as unknown[];
+    expect(result).toEqual([1, undefined, { aB: 1 }]);
+    expect(Object.keys(result)).toEqual(['0', '1', '2']);
+  });
+
+  it('should return a plain array for an Array subclass', () => {
+    class List extends Array<unknown> {}
+    const result = internalTransform(List.from([{ a_b: 1 }]), options);
+    expect(Object.getPrototypeOf(result)).toBe(Array.prototype);
+    expect(result).toEqual([{ aB: 1 }]);
   });
 
   it('should handle a self-referencing array without infinite recursion', () => {
@@ -476,6 +492,82 @@ describe('internalTransform', () => {
           depth: 2,
         }),
       ).toEqual({ aB: { c_d: { e_f: 1 } } });
+    });
+  });
+
+  describe('references', () => {
+    const untracked: TransformOptionsInternal = {
+      ...options,
+      keepReferences: false,
+    };
+
+    /** `levels` nested containers, cycling through objects, arrays, Maps and Sets */
+    const nest = (levels: number): unknown => {
+      let value: unknown = { a_b: 1 };
+      for (let i = 1; i < levels; i++) {
+        const kind = i % 4;
+        if (kind === 0) value = { c_d: value };
+        else if (kind === 1) value = [value];
+        else if (kind === 2) value = new Map([['e_f', value]]);
+        else value = new Set([value]);
+      }
+      return value;
+    };
+
+    it('should copy a shared object once for each reference with keepReferences: false', () => {
+      const addr = { street_name: 'x' };
+      const result = internalTransform(
+        { a_a: addr, b_b: [addr], c_c: new Map([['d_d', addr]]) },
+        untracked,
+      ) as { aA: unknown; bB: unknown[]; cC: Map<string, unknown> };
+      expect(result.aA).toEqual({ streetName: 'x' });
+      expect(result.bB[0]).toEqual({ streetName: 'x' });
+      expect(result.bB[0]).not.toBe(result.aA);
+      expect(result.cC.get('dD')).not.toBe(result.aA);
+    });
+
+    it('should stop with keepReferences: false once the data nests UNTRACKED_NESTING_LIMIT levels deep', () => {
+      expect(() =>
+        internalTransform(nest(UNTRACKED_NESTING_LIMIT), untracked),
+      ).not.toThrow();
+
+      let thrown: unknown;
+      try {
+        internalTransform(nest(UNTRACKED_NESTING_LIMIT + 1), untracked);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBe(NESTING_LIMIT_REACHED);
+    });
+
+    it('should keep resolving shared and circular references when a reference table fills up', () => {
+      let isolated: typeof internalTransform | undefined;
+      jest.isolateModules(() => {
+        jest.doMock('../constants/referenceTables', () => ({
+          ...jest.requireActual('../constants/referenceTables'),
+          REFERENCE_TABLE_LIMIT: 2,
+        }));
+        isolated = jest.requireActual<{ default: typeof internalTransform }>(
+          './internalTransform',
+        ).default;
+      });
+
+      const shared = { s_s: 1 };
+      const root: Record<string, unknown> = {
+        a_a: shared,
+        b_b: [{ x_x: 1 }, { y_y: 2 }, new Set([{ z_z: 3 }])],
+        c_c: shared,
+      };
+      root.d_d = root;
+      const result = (isolated as typeof internalTransform)(
+        root,
+        options,
+      ) as Record<string, unknown>;
+
+      expect(result.aA).toEqual({ sS: 1 });
+      expect(result.cC).toBe(result.aA);
+      expect(result.dD).toBe(result);
+      expect(result.bB).toEqual([{ xX: 1 }, { yY: 2 }, new Set([{ zZ: 3 }])]);
     });
   });
 });

@@ -210,7 +210,7 @@ Where the others are better or different:
 
 - **Bundle size**: bundled and minified with esbuild, ts-case-convert's `objectToCamel`
   and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
-  2.6 KB.
+  2.8 KB.
 - **More output**: ts-case-convert and es-toolkit also convert to SCREAMING_SNAKE_CASE,
   which deep-case-crafter does not.
 - **Single strings**: like `transformKey`, ts-case-convert's `toSnake('userId')` and
@@ -298,12 +298,14 @@ The result **types** match all of this, so `result.get_http_response` and
   - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab'` (default: `'camel'`, also used for any falsy value such as `''`, `null` or `0`). Any other value throws a `TypeError`.
   - `depth` (optional): **How many nesting levels to transform** (default: `Infinity` — the whole structure; `null` means the same). `1` transforms only the top-level keys, `2` the keys one level down as well, and so on. The values of objects, Maps and Sets are one level deeper; array items stay on their array's level. A value that is not a number (`NaN`, `'3'`, `3n`) throws a `TypeError`.
   - `exclude` (optional): **Keys to leave unchanged**, as paths of keys joined with dots, such as `['users_by_id.*', 'metadata.*']` (default: none; `null` means the same). See [Leaving keys unchanged](#leaving-keys-unchanged). Anything but an array of such paths throws a `TypeError`.
-  - `sourceCase` (**deprecated**): has no effect. Every key's case is detected from the key itself, at runtime and in the result type. It is still accepted, and so is the 2.x form with explicit type arguments, `transform<Data, 'snake', 'camel'>(data, { sourceCase: 'snake', targetCase: 'camel' })`, except together with `depth` or `exclude` (leave the type arguments out to use them); the key types follow the runtime, not `sourceCase` (see [3.0.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#300---2026-10-25)).
+  - `keepReferences` (optional): **Whether shared and circular references keep their shape** (default: `true`; `null` means the same). An object reached through several references then gives one result, and a circular reference points back into the result. Pass `false` for data that cannot contain such references, such as the output of `JSON.parse`, to skip that bookkeeping: inputs with many objects and arrays convert up to about twice as fast. Use it for tree-shaped data only: an object is then copied once for every path that leads to it, so shared objects inside shared objects multiply. Data with more than 256 nested objects, arrays, Maps and Sets on one path, as circular references always have, is converted again from the start with the bookkeeping, so it takes longer and getters can run twice. With a finite `depth`, circular references stop at the depth limit before that, and are copied once per path down to it. Anything but a boolean throws a `TypeError`.
+  - `sourceCase` (**deprecated**): has no effect. Every key's case is detected from the key itself, at runtime and in the result type. It is still accepted, and so is the 2.x form with explicit type arguments, `transform<Data, 'snake', 'camel'>(data, { sourceCase: 'snake', targetCase: 'camel' })`, except together with `depth`, `exclude` or `keepReferences` (leave the type arguments out to use them); the key types follow the runtime, not `sourceCase` (see [3.0.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#300---2026-10-25)).
 
 Circular references are resolved to the transformed object. With a finite `depth`, a
 cycle is transformed once per level down to the limit instead: the result grows with the
-depth, and a depth of more than about a thousand levels on cyclic data exceeds the call
-stack and throws a `RangeError`. Omit `depth` for cyclic data, or keep it small.
+depth, and a depth of more than about a thousand levels on cyclic data can exceed the
+call stack and throw a `RangeError` (see [Limits](#limits)). Omit `depth` for cyclic
+data, or keep it small.
 
 ### Leaving keys unchanged
 
@@ -476,14 +478,36 @@ Worth knowing:
   `userId`), the last one wins.
 - Every property is read once, in order, and its value is transformed before the next one
   is read; getters run during the transformation. Maps are read through their iterator.
+  With `keepReferences: false`, data with more than 256 nested objects, arrays, Maps and
+  Sets on one path is read a second time.
 - With `depth`, values below the limit are returned as they are: the result shares them
   with the input instead of copying them. An object reached at several levels is
   transformed once per level.
 - With `exclude`, an object reached through several keys is transformed once for each
   set of paths that match below them: one result when the same paths continue below
   every key, one per set otherwise.
-- The transformation is recursive: data nested about a thousand levels deep or more can
-  exceed the JavaScript call stack and throw an error (usually a `RangeError`).
+- The transformation is recursive, so very deeply nested data hits a limit: see
+  [Limits](#limits).
+
+---
+
+## Limits
+
+Measured with Node 24 on an Apple M4 Pro, with Node's default stack and memory sizes:
+
+- **Nesting depth.** The conversion is recursive. Depending on the shape, the first call
+  in a process converts 1,300 to 2,400 levels of nesting (nested Maps the fewest, nested
+  objects the most), and once the code is warm about 2,600 (nested arrays) to 4,400;
+  deeper data throws a `RangeError`. API data nests far less, but untrusted input can nest
+  deeper (`JSON.parse` accepts millions of levels), so catch the error where such input is
+  converted.
+- **Size.** There is no fixed limit on keys, objects or array items. The result is a full
+  copy, so the input and the result must both fit in memory: converting 1 million records
+  with 30 million keys (725 MB in memory) needed 1.5 GB more at its peak, and 1.1 GB with
+  `keepReferences: false`. When memory runs out, Node ends the process, which cannot be
+  caught.
+- **Long keys.** Conversion time grows linearly with a key's length: about 20 ms for a key
+  of a million characters.
 
 ---
 

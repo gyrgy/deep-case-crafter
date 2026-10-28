@@ -138,6 +138,8 @@ export type _namedNever = Expect<Equal<TransformKey<never>, never>>;
 transformKey('user_id', { targetCase: 'title' });
 // @ts-expect-error 'depth' is an option of transform, not of transformKey
 transformKey('user_id', { targetCase: 'snake', depth: 1 });
+// @ts-expect-error keepReferences is an option of transform, not of transformKey
+transformKey('user_id', { keepReferences: false });
 // @ts-expect-error 'targetcase' is not an option
 transformKey('user_id', { targetcase: 'snake' });
 // @ts-expect-error the target case goes in the options object
