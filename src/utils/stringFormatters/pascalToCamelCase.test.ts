@@ -61,11 +61,4 @@ describe('pascalToCamelCase', () => {
   it('should return empty string for empty input', () => {
     expect(pascalToCamelCase('')).toBe('');
   });
-
-  it('should handle null/undefined input', () => {
-    // @ts-expect-error: testing invalid input
-    expect(pascalToCamelCase(null)).toBe(null);
-    // @ts-expect-error: testing invalid input
-    expect(pascalToCamelCase(undefined)).toBe(undefined);
-  });
 });

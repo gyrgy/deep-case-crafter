@@ -48,3 +48,7 @@ const _keyMaybeValue = transformKey('userId', maybeSnake);
 export type _keyMaybe = Expect<
   Equal<typeof _keyMaybeValue, 'user_id' | 'userId'>
 >;
+
+// keepReferences set to undefined is the same as omitted
+const _keepUndefinedValue = transform(input, { keepReferences: undefined });
+export type _keepUndefined = Expect<Equal<typeof _keepUndefinedValue, Camel>>;

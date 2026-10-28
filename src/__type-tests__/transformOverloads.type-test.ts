@@ -147,7 +147,23 @@ const config = { targetCase: 'snake' as const, retries: 3 };
 const _configResult = transform(data, config);
 export type _config = Expect<Equal<typeof _configResult, unknown>>;
 
+// keepReferences does not change the result type
+const _keepReferencesResult = transform(data, { keepReferences: false });
+export type _keepReferences = Expect<
+  Equal<typeof _keepReferencesResult, Camel>
+>;
+
+const _keepReferencesSnakeResult = transform(data, {
+  targetCase: 'snake',
+  keepReferences: true,
+});
+export type _keepReferencesSnake = Expect<
+  Equal<typeof _keepReferencesSnakeResult, Snake>
+>;
+
 // Invalid options are rejected
+// @ts-expect-error keepReferences is a boolean
+transform(data, { keepReferences: 'no' });
 // @ts-expect-error 'title' is not a supported case
 transform(data, { targetCase: 'title' });
 // @ts-expect-error 'depht' is not an option, even next to a valid one
