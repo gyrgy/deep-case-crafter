@@ -9,7 +9,7 @@ import type { StringCase } from '../types/stringCaseTypes';
 import type { TransformKeyOptions } from '../types/transformOptionTypes';
 import type { Equal, Expect } from './typeAssertions';
 
-type AnyCase = 'userId' | 'user_id' | 'user-id' | 'UserId';
+type AnyCase = 'userId' | 'user_id' | 'user-id' | 'UserId' | 'USER_ID';
 
 // The transformed key, camelCase by default
 const _defaultResult = transformKey('user_id');
@@ -17,6 +17,9 @@ export type _default = Expect<Equal<typeof _defaultResult, 'userId'>>;
 
 const _snakeResult = transformKey('userID', { targetCase: 'snake' });
 export type _snake = Expect<Equal<typeof _snakeResult, 'user_id'>>;
+
+const _constantResult = transformKey('userID', { targetCase: 'constant' });
+export type _constant = Expect<Equal<typeof _constantResult, 'USER_ID'>>;
 
 // `undefined` and `{}` behave like omitted options, as they do at runtime
 const _undefinedOptionsResult = transformKey('user_id', undefined);
@@ -53,8 +56,8 @@ export type _caseUnion = Expect<
 >;
 
 declare const someCase: StringCase;
-const _anyOfFourResult = transformKey('userId', { targetCase: someCase });
-export type _anyOfFour = Expect<Equal<typeof _anyOfFourResult, AnyCase>>;
+const _someCaseResult = transformKey('userId', { targetCase: someCase });
+export type _someCase = Expect<Equal<typeof _someCaseResult, AnyCase>>;
 
 // A target case that may be `undefined` may also fall back to the default
 declare const maybeSnake: 'snake' | undefined;
@@ -76,7 +79,7 @@ export type _unionOptions = Expect<
   Equal<typeof _unionOptionsResult, 'user_id' | 'userId'>
 >;
 
-// Options only known as `TransformKeyOptions` give the key in any of the four cases
+// Options only known as `TransformKeyOptions` give the key in any of the target cases
 declare const options: TransformKeyOptions;
 const _knownOptionsResult = transformKey('userId', options);
 export type _knownOptions = Expect<Equal<typeof _knownOptionsResult, AnyCase>>;
@@ -102,7 +105,7 @@ const _mixedResult = transformKey(mixedKey);
 export type _mixed = Expect<Equal<typeof _mixedResult, string>>;
 
 // A key typed `any` gives `string`; a target case or options typed `any`, the key in any
-// of the four cases
+// of the target cases
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const anyValue: any;
 const _anyKeyResult = transformKey(anyValue);

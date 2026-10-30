@@ -4,7 +4,7 @@ import { StringCase } from '../types/stringCaseTypes';
 /**
  * Checks whether a value is a supported case format
  * @param value - The value to check
- * @returns `true` for `'camel'`, `'snake'`, `'pascal'` and `'kebab'`
+ * @returns `true` for `'camel'`, `'snake'`, `'pascal'`, `'kebab'` and `'constant'`
  *
  * @example
  * ```typescript

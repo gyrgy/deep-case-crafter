@@ -121,6 +121,13 @@ export type _mixedCase = Expect<
 export type _screamingSnake = Expect<
   Equal<TransformKey<'USER_ID', 'camel'>, 'USER_ID'>
 >;
+// CONSTANT_CASE is a target case only: its keys are kept, also when converting to it
+export type _screamingSnakeToConstant = Expect<
+  Equal<TransformKey<'USER_ID', 'constant'>, 'USER_ID'>
+>;
+export type _allCapsToConstant = Expect<
+  Equal<TransformKey<'ID', 'constant'>, 'ID'>
+>;
 export type _mixedSeparators = Expect<
   Equal<TransformKey<'a_b-c', 'camel'>, 'a_b-c'>
 >;

@@ -45,6 +45,7 @@ describe('transformCase', () => {
       expect(transformCase(uuid, 'camel')).toBe(uuid);
       expect(transformCase(uuid, 'pascal')).toBe(uuid);
       expect(transformCase(uuid, 'snake')).toBe(uuid);
+      expect(transformCase(uuid, 'constant')).toBe(uuid);
     });
   });
 
@@ -100,6 +101,38 @@ describe('transformCase', () => {
 
     it('should handle PascalCase with consecutive uppercase letters to kebab-case', () => {
       expect(transformCase('HTTPResponse', 'kebab')).toBe('http-response');
+    });
+  });
+
+  describe('CONSTANT_CASE', () => {
+    it('should transform every case to CONSTANT_CASE', () => {
+      expect(transformCase('userId', 'constant')).toBe('USER_ID');
+      expect(transformCase('UserId', 'constant')).toBe('USER_ID');
+      expect(transformCase('user_id', 'constant')).toBe('USER_ID');
+      expect(transformCase('user-id', 'constant')).toBe('USER_ID');
+      expect(transformCase('user', 'constant')).toBe('USER');
+      expect(transformCase('User', 'constant')).toBe('USER');
+    });
+
+    it('should split words as snake_case does', () => {
+      expect(transformCase('getHTTPResponse', 'constant')).toBe(
+        'GET_HTTP_RESPONSE',
+      );
+      expect(transformCase('XMLHttpRequest', 'constant')).toBe(
+        'XML_HTTP_REQUEST',
+      );
+      expect(transformCase('isAValidUser', 'constant')).toBe('IS_A_VALID_USER');
+      expect(transformCase('allowedURLs', 'constant')).toBe('ALLOWED_URLS');
+      expect(transformCase('addressLine1', 'constant')).toBe('ADDRESS_LINE1');
+      expect(transformCase('address_1', 'constant')).toBe('ADDRESS_1');
+    });
+
+    it('should leave CONSTANT_CASE keys unchanged, as every target case does', () => {
+      expect(transformCase('USER_ID', 'constant')).toBe('USER_ID');
+      expect(transformCase('ID', 'constant')).toBe('ID');
+      expect(transformCase('USER-ID', 'constant')).toBe('USER-ID');
+      expect(transformCase('mixed_Case', 'constant')).toBe('mixed_Case');
+      expect(transformCase('_private', 'constant')).toBe('_private');
     });
   });
 });

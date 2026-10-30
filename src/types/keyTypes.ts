@@ -180,7 +180,9 @@ type SingleWordToCase<
   ? Capitalize<K>
   : To extends 'camel'
     ? Uncapitalize<K>
-    : Lowercase<K>;
+    : To extends 'constant'
+      ? Uppercase<K>
+      : Lowercase<K>;
 
 /** A key of the detected case `From` in the target case (the formatters `transformCase` picks) */
 type FormatKey<
@@ -194,14 +196,18 @@ type FormatKey<
       ? SeparatedToCamelCase<K, From extends 'snake' ? '_' : '-'>
       : To extends 'pascal'
         ? Capitalize<SeparatedToCamelCase<K, From extends 'snake' ? '_' : '-'>>
-        : From extends 'snake'
-          ? ReplaceSeparator<K, '_', '-'>
-          : ReplaceSeparator<K, '-', '_'>
+        : To extends 'constant'
+          ? Uppercase<From extends 'snake' ? K : ReplaceSeparator<K, '-', '_'>>
+          : From extends 'snake'
+            ? ReplaceSeparator<K, '_', '-'>
+            : ReplaceSeparator<K, '-', '_'>
     : To extends 'pascal'
       ? Capitalize<K>
       : To extends 'camel'
         ? PascalToCamelCase<K>
-        : ToSeparatedCase<K, To extends 'snake' ? '_' : '-'>;
+        : To extends 'constant'
+          ? Uppercase<ToSeparatedCase<K, '_'>>
+          : ToSeparatedCase<K, To extends 'snake' ? '_' : '-'>;
 
 /** Applies the detected case of `K` (`transformCase`) */
 type TransformDetectedKey<

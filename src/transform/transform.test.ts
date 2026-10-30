@@ -305,7 +305,7 @@ describe('transform (recursive)', () => {
         transform({ user_id: 1 }, { targetCase: targetCase as 'camel' }),
       ).toThrow(
         new TypeError(
-          `Unsupported targetCase "${targetCase}". Use one of: camel, snake, pascal, kebab.`,
+          `Unsupported targetCase "${targetCase}". Use one of: camel, snake, pascal, kebab, constant.`,
         ),
       );
     }
@@ -451,6 +451,36 @@ describe('transform (recursive)', () => {
     expect(transform(input, { targetCase: 'kebab' })).toEqual({
       'exchange-rates': { USD: 1, EUR: 0.9 },
       'route-map': { GET: '/users', POST: '/users' },
+    });
+  });
+
+  it('should transform keys to CONSTANT_CASE, which do not convert back except one-letter words', () => {
+    const input = {
+      apiKey: 'k',
+      'max-retries': 3,
+      db_settings: { HTTPPort: 80 },
+      env: new Map([['logLevel', 'debug']]),
+      NODE_ENV: 'test',
+      p99: 1,
+    };
+    const constant = transform(input, { targetCase: 'constant' });
+    expect(constant).toEqual({
+      API_KEY: 'k',
+      MAX_RETRIES: 3,
+      DB_SETTINGS: { HTTP_PORT: 80 },
+      ENV: new Map([['LOG_LEVEL', 'debug']]),
+      NODE_ENV: 'test',
+      P99: 1,
+    });
+    // A target case only: CONSTANT_CASE keys stay as they are, but a single capital with
+    // digits is a one-letter word
+    expect(transform(constant, { targetCase: 'camel' })).toEqual({
+      API_KEY: 'k',
+      MAX_RETRIES: 3,
+      DB_SETTINGS: { HTTP_PORT: 80 },
+      ENV: new Map([['LOG_LEVEL', 'debug']]),
+      NODE_ENV: 'test',
+      p99: 1,
     });
   });
 

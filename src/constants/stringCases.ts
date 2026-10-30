@@ -6,4 +6,5 @@ export const STRING_CASES: readonly StringCase[] = [
   'snake',
   'pascal',
   'kebab',
+  'constant',
 ];

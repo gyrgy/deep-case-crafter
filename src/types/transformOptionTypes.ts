@@ -6,7 +6,8 @@ import { PlainCase, StringCase } from './stringCaseTypes';
  */
 export interface TransformKeyOptions {
   /**
-   * The target casing format to transform to
+   * The target casing format to transform to. `'constant'` is CONSTANT_CASE, such as
+   * `USER_ID`.
    * @default 'camel'
    */
   targetCase?: StringCase | undefined;
@@ -114,8 +115,14 @@ export type NoUnknownKeyOptions<Options> = [
   ? unknown
   : NoUnknownOptions<Options, TransformKeyOptions>;
 
-/** `To` as a plain case literal, or `'camel'` (the default) for `undefined` */
-type CaseOrDefault<To> = To extends undefined ? 'camel' : PlainCase<To>;
+/**
+ * `To` as a plain case literal, or `'camel'` (the default) for `undefined`.
+ *
+ * Not meant to be used directly. It is exported, like `PlainCase`, so that declaration
+ * files of code with a generic target case refer to it by name instead of writing out its
+ * definition.
+ */
+export type CaseOrDefault<To> = To extends undefined ? 'camel' : PlainCase<To>;
 
 /**
  * The target case the runtime uses for one options object: `'camel'` when `targetCase`

@@ -15,6 +15,7 @@ enum KeyCase {
   Snake = 'snake',
   Kebab = 'kebab',
   Pascal = 'pascal',
+  Constant = 'constant',
 }
 
 type Brand<T, B> = T & { readonly __brand: B };
@@ -45,6 +46,11 @@ type Pascal = {
   LastName: string;
   HomeAddr: { ZipCode: string; PostBox: number };
 };
+type Constant = {
+  USER_ID: number;
+  LAST_NAME: string;
+  HOME_ADDR: { ZIP_CODE: string; POST_BOX: number };
+};
 type CamelDepth1 = {
   userId: number;
   lastName: string;
@@ -63,11 +69,14 @@ export type _enumSnake = Expect<Equal<typeof _enumSnakeValue, Snake>>;
 const _enumKebabValue = transform(input, { targetCase: KeyCase.Kebab });
 export type _enumKebab = Expect<Equal<typeof _enumKebabValue, Kebab>>;
 
-// A stored enum member widens to the whole enum: any of the four results
+const _enumConstantValue = transform(input, { targetCase: KeyCase.Constant });
+export type _enumConstant = Expect<Equal<typeof _enumConstantValue, Constant>>;
+
+// A stored enum member widens to the whole enum: any of its results
 const enumOptions = { targetCase: KeyCase.Snake };
 const _enumWideValue = transform(input, enumOptions);
 export type _enumWide = Expect<
-  Equal<typeof _enumWideValue, Camel | Snake | Kebab | Pascal>
+  Equal<typeof _enumWideValue, Camel | Snake | Kebab | Pascal | Constant>
 >;
 
 // Each member of a union of options objects keeps its own targetCase and depth
@@ -211,7 +220,10 @@ export type _keyBranded = Expect<Equal<typeof _keyBrandedValue, 'user_id'>>;
 
 const _keyEnumWideValue = transformKey('userId', enumOptions);
 export type _keyEnumWide = Expect<
-  Equal<typeof _keyEnumWideValue, 'userId' | 'user_id' | 'user-id' | 'UserId'>
+  Equal<
+    typeof _keyEnumWideValue,
+    'userId' | 'user_id' | 'user-id' | 'UserId' | 'USER_ID'
+  >
 >;
 
 const keyPresets = { api: { targetCase: 'snake' }, ui: {} } as const;

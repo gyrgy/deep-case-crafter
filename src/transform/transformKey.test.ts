@@ -29,9 +29,10 @@ describe('transformKey', () => {
     expect(transformKey('api-key', { targetCase: 'pascal' })).toBe('ApiKey');
     expect(transformKey('UserId', { targetCase: 'camel' })).toBe('userId');
     expect(transformKey('hello', { targetCase: 'pascal' })).toBe('Hello');
+    expect(transformKey('userID', { targetCase: 'constant' })).toBe('USER_ID');
   });
 
-  it('should return a string that is not a key in one of the four cases unchanged', () => {
+  it('should return a string that is not a camelCase, PascalCase, snake_case or kebab-case key unchanged', () => {
     const unchanged = [
       '',
       'Hello World',
@@ -44,6 +45,7 @@ describe('transformKey', () => {
     for (const str of unchanged) {
       expect(transformKey(str, { targetCase: 'snake' })).toBe(str);
       expect(transformKey(str, { targetCase: 'camel' })).toBe(str);
+      expect(transformKey(str, { targetCase: 'constant' })).toBe(str);
     }
   });
 
@@ -114,7 +116,7 @@ describe('transformKey', () => {
       transformKey('user_id', { targetCase: 'SNAKE' as 'snake' }),
     ).toThrow(
       new TypeError(
-        'Unsupported targetCase "SNAKE". Use one of: camel, snake, pascal, kebab.',
+        'Unsupported targetCase "SNAKE". Use one of: camel, snake, pascal, kebab, constant.',
       ),
     );
   });

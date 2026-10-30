@@ -4,6 +4,49 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-10-30
+
+### Added
+
+- The target case `'constant'`: CONSTANT_CASE, also called SCREAMING_SNAKE_CASE.
+  `transform(data, { targetCase: 'constant' })` turns `userID` into `USER_ID`, typed
+  `USER_ID`. Words are split as for snake_case: `getHTTPResponse` becomes
+  `GET_HTTP_RESPONSE`, `addressLine1` becomes `ADDRESS_LINE1`. `transformKey` and the
+  `TransformKey` and `TransformResult` types take it as well.
+
+  It is a target case only. CONSTANT_CASE keys such as `USER_ID` or `ID` are left
+  unchanged by every target case, as before, so they do not convert back. A single
+  capital, with or without digits, is converted as a one-letter word, as before:
+  `'constant'` turns `p99` into `P99`, and camelCase, snake_case and kebab-case turn
+  `P99` back into `p99`.
+
+- The type exports `PlainCase` and `CaseOrDefault`. Declaration files emitted for code
+  with a generic target case, such as
+  `<C extends StringCase>(targetCase: C) => transformKey(key, { targetCase })`, refer to
+  them instead of writing out the list of target cases, so cases added in later versions
+  are typed as well. Like `TransformKeyToEach`, they are not meant for direct use.
+
+### Changed
+
+- `StringCase` includes `'constant'`. Code that handles every member of it, such as an
+  exhaustive `switch` or a `Record<StringCase, ...>`, has to handle `'constant'` too.
+- Declaration files that a library emitted with an earlier version list the four earlier
+  target cases in most functions that take a generic or `StringCase` target case and
+  return an inferred result. `'constant'` can be passed through such a function, but its
+  result is typed `never`, or as the results of other cases only: for an optional target
+  case, the camelCase result, which compiles but does not match the runtime. Rebuilding
+  the library with 3.4.0 fixes them; the rebuilt declaration files refer to types added
+  in 3.4.0, so the library then needs 3.4.0 or later. Annotating the results for a target
+  case typed `StringCase` with `TransformResult<...>` or `TransformKey<...>` also keeps
+  them right for cases added later (see
+  [Result types](https://github.com/gyrgy/deep-case-crafter#result-types)).
+- The result type for a `targetCase` typed `StringCase` includes the CONSTANT_CASE
+  result. Very large results of that kind take about a fifth more work to check, and
+  reach TypeScript's instantiation limit (TS2589) sooner. A literal `targetCase` costs the
+  same as before.
+- The `TypeError` for an unsupported `targetCase` lists `constant` among the supported
+  cases.
+
 ## [3.3.0] - 2026-10-28
 
 ### Added
@@ -275,6 +318,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[3.4.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.0
 [3.3.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.3.0
 [3.2.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.2.0
 [3.1.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.1.0
