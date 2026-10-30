@@ -1,5 +1,5 @@
 /**
- * Compile-time type tests for acronym-aware camel/pascal -> snake/kebab conversion.
+ * Compile-time type tests for acronym-aware camel/pascal -> snake/kebab/constant conversion.
  * Enforced by `tsc --noEmit`; ignored by jest; never bundled. See preservedKey.type-test.ts.
  */
 import type { TransformKey } from '../types/keyTypes';
@@ -128,6 +128,32 @@ export type _pascalRun = Expect<
     TransformKey<'HelloABCWorldDEFTest', 'snake'>,
     'hello_abc_world_def_test'
   >
+>;
+
+// CONSTANT_CASE has the words of snake_case, in capitals.
+export type _constantAcronym = Expect<
+  Equal<TransformKey<'getHTTPResponse', 'constant'>, 'GET_HTTP_RESPONSE'>
+>;
+export type _constantPascalAcronym = Expect<
+  Equal<TransformKey<'HTTPResponse', 'constant'>, 'HTTP_RESPONSE'>
+>;
+export type _constantOneLetterWord = Expect<
+  Equal<TransformKey<'isAValidUser', 'constant'>, 'IS_A_VALID_USER'>
+>;
+export type _constantPlural = Expect<
+  Equal<TransformKey<'allowedURLs', 'constant'>, 'ALLOWED_URLS'>
+>;
+export type _constantDigits = Expect<
+  Equal<TransformKey<'addressLine1', 'constant'>, 'ADDRESS_LINE1'>
+>;
+export type _constantFromSnake = Expect<
+  Equal<TransformKey<'user_id', 'constant'>, 'USER_ID'>
+>;
+export type _constantFromKebab = Expect<
+  Equal<TransformKey<'content-type', 'constant'>, 'CONTENT_TYPE'>
+>;
+export type _constantSingleWord = Expect<
+  Equal<TransformKey<'User' | 'id' | 'S3', 'constant'>, 'USER' | 'ID' | 'S3'>
 >;
 
 // Long keys must compile (the tail-recursive scanners handle ~1000 chars; a nested form

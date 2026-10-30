@@ -6,6 +6,7 @@ describe('resolveTargetCase', () => {
     expect(resolveTargetCase('snake')).toBe('snake');
     expect(resolveTargetCase('pascal')).toBe('pascal');
     expect(resolveTargetCase('kebab')).toBe('kebab');
+    expect(resolveTargetCase('constant')).toBe('constant');
   });
 
   it('should use camel for an omitted or falsy target case', () => {
@@ -17,7 +18,7 @@ describe('resolveTargetCase', () => {
   it('should reject any other value', () => {
     expect(() => resolveTargetCase('SNAKE')).toThrow(
       new TypeError(
-        'Unsupported targetCase "SNAKE". Use one of: camel, snake, pascal, kebab.',
+        'Unsupported targetCase "SNAKE". Use one of: camel, snake, pascal, kebab, constant.',
       ),
     );
     expect(() => resolveTargetCase('toString')).toThrow(TypeError);

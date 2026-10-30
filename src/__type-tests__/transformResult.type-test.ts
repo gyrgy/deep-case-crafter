@@ -42,6 +42,12 @@ export type _kebab = Expect<
     { 'user-id': number; 'first-name': string; 'zip-code': string }
   >
 >;
+export type _constant = Expect<
+  Equal<
+    TransformResult<Keys, 'constant'>,
+    { USER_ID: number; FIRST_NAME: string; ZIP_CODE: string }
+  >
+>;
 export type _targetUnion = Expect<
   Equal<
     TransformResult<{ user_id: 1 }, 'camel' | 'pascal'>,

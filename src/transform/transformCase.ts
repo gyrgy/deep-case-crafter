@@ -23,6 +23,10 @@ import toSeparatedCase from '../utils/stringFormatters/toSeparatedCase';
  * - snake_case or kebab-case: lowercase, one kind of separator, never two in a row, and
  *   not a UUID
  *
+ * CONSTANT_CASE is a target case only: a key written in it, such as `USER_ID`, is in none
+ * of these cases, so it is kept. A single capital with or without digits (`X`, `P99`) is
+ * a single word.
+ *
  * These are the readme's key preservation rules; `TransformKey` in `types/keyTypes.ts`
  * mirrors them.
  *
@@ -34,6 +38,7 @@ import toSeparatedCase from '../utils/stringFormatters/toSeparatedCase';
  * ```typescript
  * transformCase('hello_world', 'camel') // => 'helloWorld'
  * transformCase('HelloWorld', 'snake') // => 'hello_world'
+ * transformCase('userId', 'constant') // => 'USER_ID'
  * transformCase('USER_ID', 'camel') // => 'USER_ID'
  * ```
  * @internal This function is for internal use by the library
@@ -84,11 +89,13 @@ export default function transformCase(
       // camelCase
       switch (targetCase) {
         case 'snake':
-          return toSeparatedCase(str, '_');
+          return toSeparatedCase(str, '_', false);
         case 'kebab':
-          return toSeparatedCase(str, '-');
+          return toSeparatedCase(str, '-', false);
         case 'pascal':
           return str[0].toUpperCase() + str.slice(1);
+        case 'constant':
+          return toSeparatedCase(str, '_', true);
         default:
           return str;
       }
@@ -100,11 +107,13 @@ export default function transformCase(
     // PascalCase
     switch (targetCase) {
       case 'snake':
-        return toSeparatedCase(str, '_');
+        return toSeparatedCase(str, '_', false);
       case 'kebab':
-        return toSeparatedCase(str, '-');
+        return toSeparatedCase(str, '-', false);
       case 'camel':
         return pascalToCamelCase(str);
+      case 'constant':
+        return toSeparatedCase(str, '_', true);
       default:
         return str;
     }
@@ -122,6 +131,8 @@ export default function transformCase(
         return separatedToCamelCase(str, '_', true);
       case 'kebab':
         return replaceSeparator(str, '_', '-');
+      case 'constant':
+        return str.toUpperCase();
       default:
         return str;
     }
@@ -136,6 +147,8 @@ export default function transformCase(
       return separatedToCamelCase(str, '-', true);
     case 'snake':
       return replaceSeparator(str, '-', '_');
+    case 'constant':
+      return replaceSeparator(str, '-', '_').toUpperCase();
     default:
       return str;
   }

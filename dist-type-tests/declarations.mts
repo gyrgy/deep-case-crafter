@@ -65,6 +65,10 @@ export function keyToCase<K extends string, C extends StringCase>(
   return transformKey(key, { targetCase });
 }
 
+export function dataIn<T, C extends StringCase>(data: T, targetCase: C) {
+  return transform(data, { targetCase });
+}
+
 export function keyWithOptions<K extends string, O extends TransformKeyOptions>(
   key: K,
   options: O,

@@ -526,7 +526,7 @@ export type TransformResultFor<T, Options> =
  * The key type `transformKey` returns for an options object. Each member of a union of
  * options objects gives its own key, and an optional `targetCase` may also be omitted,
  * which gives the camelCase key (see `TransformResultForOne`). Options typed `any`, or a
- * `targetCase` typed `any`, give the key in any of the four cases.
+ * `targetCase` typed `any`, give the key in any of the target cases.
  *
  * Not exported: declaration files of code around `transformKey` refer to `TransformKey`
  * instead, because options with a generic type do not match the overload that returns

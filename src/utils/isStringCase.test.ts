@@ -6,6 +6,7 @@ describe('isStringCase', () => {
     expect(isStringCase('snake')).toBe(true);
     expect(isStringCase('pascal')).toBe(true);
     expect(isStringCase('kebab')).toBe(true);
+    expect(isStringCase('constant')).toBe(true);
   });
 
   it('should return false for anything else, including inherited property names', () => {

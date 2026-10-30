@@ -13,6 +13,12 @@ describe('singleWordToCase', () => {
     expect(singleWordToCase('S3', 'camel')).toBe('s3');
   });
 
+  it('should uppercase a word for CONSTANT_CASE', () => {
+    expect(singleWordToCase('user', 'constant')).toBe('USER');
+    expect(singleWordToCase('User', 'constant')).toBe('USER');
+    expect(singleWordToCase('item2', 'constant')).toBe('ITEM2');
+  });
+
   it('should lowercase a word for snake_case and kebab-case', () => {
     expect(singleWordToCase('User', 'snake')).toBe('user');
     expect(singleWordToCase('user', 'snake')).toBe('user');

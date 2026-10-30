@@ -10,8 +10,9 @@ import resolveTargetCase from '../utils/resolveTargetCase';
 
 /**
  * Transforms one key to camelCase, the way `transform` transforms every key. A string
- * that is not a key in one of the four cases, such as `'Hello World'`, `'USER_ID'` or a
- * UUID, is returned unchanged (see "Key Preservation Rules" in the readme).
+ * that is not a camelCase, PascalCase, snake_case or kebab-case key, such as
+ * `'Hello World'`, `'USER_ID'` or a UUID, is returned unchanged (see "Key Preservation
+ * Rules" in the readme).
  *
  * The result type is the transformed key: `transformKey('user_id')` is typed `'userId'`.
  */
@@ -22,9 +23,9 @@ function transformKey<K extends string>(
 
 /**
  * Transforms one key to `targetCase` (default `'camel'`), the way `transform` transforms
- * every key. A string that is not a key in one of the four cases, such as
- * `'Hello World'`, `'USER_ID'` or a UUID, is returned unchanged (see "Key Preservation
- * Rules" in the readme).
+ * every key. A string that is not a camelCase, PascalCase, snake_case or kebab-case key,
+ * such as `'Hello World'`, `'USER_ID'` or a UUID, is returned unchanged (see "Key
+ * Preservation Rules" in the readme).
  *
  * The result type is the transformed key: `transformKey('userID', { targetCase: 'snake' })`
  * is typed `'user_id'`, a union of keys or target cases gives the union of the results,

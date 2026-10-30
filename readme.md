@@ -9,7 +9,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gyrgy/deep-case-crafter/blob/main/LICENSE)
 
 Converts the keys of nested objects, arrays, Maps and Sets between camelCase,
-snake_case, kebab-case and PascalCase, and types the result exactly.
+snake_case, kebab-case and PascalCase, or to CONSTANT_CASE, and types the result
+exactly.
 
 ```typescript
 import { transform } from 'deep-case-crafter';
@@ -34,6 +35,9 @@ const body = transform(user, { targetCase: 'snake' });
   keys in different cases can be mixed in one input.
 - **Acronym-aware**: `userID` → `user_id`, `HTTPResponse` → `http_response` or
   `httpResponse`.
+- **CONSTANT_CASE output**: `targetCase: 'constant'` turns `userID` into `USER_ID` and
+  `HTTPResponse` into `HTTP_RESPONSE`. It is an output case only: the other cases leave
+  `USER_ID` as it is.
 - **Deep**: objects, arrays, `Map` and `Set`, down to an optional `depth`, circular
   references included. `Date`, `RegExp`, typed arrays and other built-in values are
   returned untouched.
@@ -89,6 +93,10 @@ console.log(pascalCaseResult);
 const kebabCaseResult = transform(input, { targetCase: 'kebab' });
 console.log(kebabCaseResult);
 // Output: { "user-id": 1, "first-name": "John" }
+
+const constantCaseResult = transform(input, { targetCase: 'constant' });
+console.log(constantCaseResult);
+// Output: { USER_ID: 1, FIRST_NAME: 'John' }
 ```
 
 ---
@@ -193,26 +201,28 @@ typed alternative), [camelcase-keys](https://www.npmjs.com/package/camelcase-key
 `toSnakeCaseKeys`). Plain snake_case keys such as `user_id` become the same camelCase
 keys in all of them. The table shows where they differ:
 
-|                                                    | deep-case-crafter                       | ts-case-convert                                                        | camelcase-keys, snakecase-keys                                    | es-toolkit                                                     |
-| -------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| `userID` to snake_case                             | `user_id`                               | `user_i_d`                                                             | `user_id`                                                         | `user_id`, typed `user_i_d`                                    |
-| `HTTPResponse` to snake_case                       | `http_response`                         | `h_t_t_p_response`                                                     | `http_response`                                                   | `http_response`, typed `h_t_t_p_response`                      |
-| `isAValidUser` to snake_case                       | `is_a_valid_user`                       | `is_a_valid_user`                                                      | `is_a_valid_user`                                                 | `is_a_valid_user`                                              |
-| `addressLine1` to snake_case                       | `address_line1`                         | `address_line_1`, or `address_line1` with `no-split-numbers`           | `address_line1`                                                   | `address_line_1`, typed `address_line1`                        |
-| Objects inside a `Map` or `Set`                    | keys converted                          | outside its documented scope                                           | outside their documented scope                                    | left as they are, as documented                                |
-| Result type for `await res.json()`, an `any` input | `any`                                   | a union that includes `Date` and `null`, so `.userId` does not compile | `any`                                                             | `any`                                                          |
-| A `readonly string[]` field in the result type     | `readonly string[]`                     | an object type whose `.map()` does not compile                         | `readonly string[]`                                               | an object type: `.map()` compiles, `[0]` and `for...of` do not |
-| A `[number, number]` field in the result type      | `[number, number]`                      | `number[]`                                                             | `[number, number]`                                                | `number[]`                                                     |
-| Leaving chosen keys unchanged                      | `exclude` paths, such as `'metadata.*'` | no option                                                              | `exclude` keys by name or RegExp; camelcase-keys also `stopPaths` | no option                                                      |
-| Target cases                                       | camel, snake, kebab, Pascal             | camel, snake, Pascal, SCREAMING_SNAKE                                  | camel and Pascal; snake                                           | camel, snake, kebab, Pascal, SCREAMING_SNAKE                   |
+|                                                    | deep-case-crafter                            | ts-case-convert                                                        | camelcase-keys, snakecase-keys                                    | es-toolkit                                                     |
+| -------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| `userID` to snake_case                             | `user_id`                                    | `user_i_d`                                                             | `user_id`                                                         | `user_id`, typed `user_i_d`                                    |
+| `HTTPResponse` to snake_case                       | `http_response`                              | `h_t_t_p_response`                                                     | `http_response`                                                   | `http_response`, typed `h_t_t_p_response`                      |
+| `isAValidUser` to snake_case                       | `is_a_valid_user`                            | `is_a_valid_user`                                                      | `is_a_valid_user`                                                 | `is_a_valid_user`                                              |
+| `addressLine1` to snake_case                       | `address_line1`                              | `address_line_1`, or `address_line1` with `no-split-numbers`           | `address_line1`                                                   | `address_line_1`, typed `address_line1`                        |
+| Objects inside a `Map` or `Set`                    | keys converted                               | outside its documented scope                                           | outside their documented scope                                    | left as they are, as documented                                |
+| Result type for `await res.json()`, an `any` input | `any`                                        | a union that includes `Date` and `null`, so `.userId` does not compile | `any`                                                             | `any`                                                          |
+| A `readonly string[]` field in the result type     | `readonly string[]`                          | an object type whose `.map()` does not compile                         | `readonly string[]`                                               | an object type: `.map()` compiles, `[0]` and `for...of` do not |
+| A `[number, number]` field in the result type      | `[number, number]`                           | `number[]`                                                             | `[number, number]`                                                | `number[]`                                                     |
+| Leaving chosen keys unchanged                      | `exclude` paths, such as `'metadata.*'`      | no option                                                              | `exclude` keys by name or RegExp; camelcase-keys also `stopPaths` | no option                                                      |
+| Target cases                                       | camel, snake, kebab, Pascal, SCREAMING_SNAKE | camel, snake, Pascal, SCREAMING_SNAKE                                  | camel and Pascal; snake                                           | camel, snake, kebab, Pascal, SCREAMING_SNAKE                   |
 
 Where the others are better or different:
 
 - **Bundle size**: bundled and minified with esbuild, ts-case-convert's `objectToCamel`
   and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
   2.8 KB.
-- **More output**: ts-case-convert and es-toolkit also convert to SCREAMING_SNAKE_CASE,
-  which deep-case-crafter does not.
+- **CONSTANT_CASE input**: camelcase-keys, snakecase-keys and es-toolkit also read
+  SCREAMING_SNAKE_CASE keys, so `USER_ID` becomes `userId` or `user_id`.
+  deep-case-crafter converts to CONSTANT_CASE, but leaves keys such as `USER_ID` and
+  `ID` unchanged (see [Key Preservation Rules](#key-preservation-rules)).
 - **Single strings**: like `transformKey`, ts-case-convert's `toSnake('userId')` and
   es-toolkit's `snakeCase('userId')` return `'user_id'`. es-toolkit's functions also
   convert text, such as `'Hello World'` → `'hello_world'`, which `transformKey` returns
@@ -231,8 +241,8 @@ Where the others are better or different:
 
 ## Acronym-aware conversion
 
-When converting **to** `snake_case` or `kebab-case`, runs of capitals (acronyms)
-are treated as whole words instead of being split letter-by-letter:
+When converting **to** `snake_case`, `kebab-case` or `CONSTANT_CASE`, runs of capitals
+(acronyms) are treated as whole words instead of being split letter-by-letter:
 
 ```typescript
 const input = { getHTTPResponse: 1, userID: 2, parseHTMLString: 3 };
@@ -276,7 +286,7 @@ console.log(result);
 ```
 
 Words of two or more capitals, such as `ID`, `USD` or `GET`, are left unchanged, like
-`SCREAMING_SNAKE` keys (see [Key Preservation Rules](#key-preservation-rules)). A single
+`CONSTANT_CASE` keys (see [Key Preservation Rules](#key-preservation-rules)). A single
 capital, with or without digits (`S`, `S3`), is converted as a one-letter word.
 
 Converting back to `PascalCase` cannot restore a lowercased acronym: `httpResponse`
@@ -295,7 +305,7 @@ The result **types** match all of this, so `result.get_http_response` and
 
 - **data**: The data structure to transform (`object`, `array`, `Map`, or `Set`).
 - **options**:
-  - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab'` (default: `'camel'`, also used for any falsy value such as `''`, `null` or `0`). Any other value throws a `TypeError`.
+  - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab' | 'constant'` (default: `'camel'`, also used for any falsy value such as `''`, `null` or `0`). Any other value throws a `TypeError`. `'constant'` is CONSTANT_CASE, also called SCREAMING_SNAKE_CASE: `userID` becomes `USER_ID`, split into words as for snake_case. It is a target case only: keys such as `USER_ID` or `ID` are left unchanged by every target case, so they do not convert back. A single capital, with or without digits, is still converted as a one-letter word: `'constant'` turns `p99` into `P99`, and camel, snake and kebab turn it back into `p99` (see [Key Preservation Rules](#key-preservation-rules)).
   - `depth` (optional): **How many nesting levels to transform** (default: `Infinity` — the whole structure; `null` means the same). `1` transforms only the top-level keys, `2` the keys one level down as well, and so on. The values of objects, Maps and Sets are one level deeper; array items stay on their array's level. A value that is not a number (`NaN`, `'3'`, `3n`) throws a `TypeError`.
   - `exclude` (optional): **Keys to leave unchanged**, as paths of keys joined with dots, such as `['users_by_id.*', 'metadata.*']` (default: none; `null` means the same). See [Leaving keys unchanged](#leaving-keys-unchanged). Anything but an array of such paths throws a `TypeError`.
   - `keepReferences` (optional): **Whether shared and circular references keep their shape** (default: `true`; `null` means the same). An object reached through several references then gives one result, and a circular reference points back into the result. Pass `false` for data that cannot contain such references, such as the output of `JSON.parse`, to skip that bookkeeping: inputs with many objects and arrays convert up to about twice as fast. Use it for tree-shaped data only: an object is then copied once for every path that leads to it, so shared objects inside shared objects multiply. Data with more than 256 nested objects, arrays, Maps and Sets on one path, as circular references always have, is converted again from the start with the bookkeeping, so it takes longer and getters can run twice. With a finite `depth`, circular references stop at the depth limit before that, and are copied once per path down to it. Anything but a boolean throws a `TypeError`.
@@ -369,11 +379,14 @@ type of the `exclude` paths, such as `['metadata.*']`.
   (without `sourceCase`), and options passed with only the input type given
   (`transform<Data>(data, options)`). Leave the type arguments out to get the precise
   type.
-- When a library exports a value or function built on `transform`, annotate it with
-  `TransformResult<...>`. Otherwise the result type is written out into its declaration
-  files: recursive types (trees, JSON values) are cut off as `any`, and very large types
-  or symbol-keyed members fail to compile (TS7056, TS4118). Generic functions around
-  `transform` are not affected.
+- When a library exports a value or function built on `transform` or `transformKey`,
+  annotate its result with `TransformResult<...>` or `TransformKey<...>`. Otherwise the
+  result type is written out into its declaration files. For data of a fixed type,
+  recursive types (trees, JSON values) are then cut off as `any`, and very large types or
+  symbol-keyed members fail to compile (TS7056, TS4118). For a target case typed
+  `StringCase`, generic data included, the result can cover only the cases that existed
+  when the library was built, not cases added later. A generic target case, as in
+  `<C extends StringCase>(targetCase: C)`, is not affected.
 - Some values cannot be told apart by their types. `Error`, `URL`, boxed primitives,
   iterators, module namespace objects and other built-ins whose types do not declare a
   `Symbol.toStringTag` are returned untouched, but typed as plain objects with
@@ -398,15 +411,15 @@ transformKey('HTTPResponse', { targetCase: 'snake' }); // 'http_response'
 transformKey('Hello World', { targetCase: 'snake' }); // 'Hello World'
 ```
 
-It converts names, not text: a string that is not a key in one of the four cases is
-returned unchanged, such as `'Hello World'`, `'USER_ID'`, `'_id'` or a UUID (see
-[Key Preservation Rules](#key-preservation-rules)).
+It converts names, not text: a string that is not a camelCase, PascalCase, snake_case or
+kebab-case key is returned unchanged, such as `'Hello World'`, `'USER_ID'`, `'_id'` or a
+UUID (see [Key Preservation Rules](#key-preservation-rules)).
 
 The result type is the converted key. A string literal gives a literal, a union of keys
 or of target cases gives the union of their results, and a `string` gives `string`.
 `TransformKey<Key, TargetCase>` names it: `TransformKey<'userID', 'snake'>` is
 `'user_id'`. Options that are not known exactly, such as an options object that may be
-`undefined`, give a wider type: `string`, or the key in any of the four cases.
+`undefined`, give a wider type: `string`, or the key in any of the target cases.
 
 To use it in a callback, wrap it in a function:
 `keys.map((key) => transformKey(key, { targetCase: 'snake' }))`.
@@ -447,6 +460,10 @@ A key is left **completely unchanged** when it:
   it starts with a digit or a letter;
 - **is not written in one recognisable case**, e.g. `mixed_Case`, `USER_ID`, `a_b-c`, or
   is a word of two or more capitals, e.g. `ID`, `USD`, `B2B`.
+
+CONSTANT_CASE keys such as `USER_ID` fall under the last rule, so every target case keeps
+them: `'constant'` is a target case only. A single capital, with or without digits
+(`X`, `P99`), is not kept: it is converted as a one-letter word.
 
 Trailing digits are kept but treated as part of the word, so they do **not** by
 themselves preserve a key — `address_1` becomes `address1`, and the single word
@@ -518,7 +535,8 @@ stable. Key outputs change only to fix bugs, and every change is listed in the
 [changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md): if you
 store converted keys, such as database columns, check it before upgrading. A minor
 version can add an option, which `Required<TransformOptions>` and
-`Required<TransformKeyOptions>` then require.
+`Required<TransformKeyOptions>` then require, or a target case, which code that handles
+every member of `StringCase` then has to handle too.
 
 ### Upgrading to v3
 
