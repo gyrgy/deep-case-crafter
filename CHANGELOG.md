@@ -4,6 +4,24 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2026-10-31
+
+### Changed
+
+- Faster, with the same results (measured with Node 24 on an Apple M4 Pro):
+  - Typical API payloads: 8-15% faster; small objects about 1.3x.
+  - Arrays of objects: 15-30% faster. Records holding arrays of numbers: about 1.3x.
+  - Large inputs: 100,000 records convert in 132 ms instead of 163 ms, 1 million records
+    in 1.73 s instead of 1.86 s (0.87 s instead of 1.05 s with `keepReferences: false`),
+    and 100 MB of JSON in 86 ms instead of 100 ms.
+  - About half as much memory is allocated per object. The minified build no longer
+    creates a closure for each of the traversal's helpers on every object, array, Map
+    and Set, and values that are not objects are stored without a function call.
+- Nesting limits on the first call in a process are 2-4% lower, as a stack frame grew:
+  2,291 levels of nested objects instead of 2,382, and 1,295 of nested Maps instead of
+  1,324. Once the code is warm they are the same or higher: 5,176 levels of nested Maps
+  and Sets instead of 4,436. The Limits section lists them.
+
 ## [3.4.0] - 2026-10-30
 
 ### Added
@@ -318,6 +336,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[3.4.1]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.1
 [3.4.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.0
 [3.3.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.3.0
 [3.2.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.2.0

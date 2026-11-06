@@ -45,7 +45,11 @@ export default [
         declaration: false,
         declarationMap: false,
       }),
-      terser(),
+      // reduce_funcs would inline every function called from one place as a function
+      // expression at its call site. In internalTransform that creates a closure for
+      // each helper (getObjectTag, isMap, isSet, findReference, the collection loops) on
+      // every object, array, Map and Set: about 250 bytes per object.
+      terser({ compress: { reduce_funcs: false } }),
       visualizer({
         filename: './stats/stats.html',
       }),

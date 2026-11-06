@@ -513,8 +513,8 @@ Worth knowing:
 Measured with Node 24 on an Apple M4 Pro, with Node's default stack and memory sizes:
 
 - **Nesting depth.** The conversion is recursive. Depending on the shape, the first call
-  in a process converts 1,300 to 2,400 levels of nesting (nested Maps the fewest, nested
-  objects the most), and once the code is warm about 2,600 (nested arrays) to 4,400;
+  in a process converts 1,300 to 2,300 levels of nesting (nested Maps the fewest, nested
+  objects the most), and once the code is warm about 2,600 (nested arrays) to 5,200;
   deeper data throws a `RangeError`. API data nests far less, but untrusted input can nest
   deeper (`JSON.parse` accepts millions of levels), so catch the error where such input is
   converted.
