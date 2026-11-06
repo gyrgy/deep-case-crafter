@@ -311,6 +311,27 @@ describe('transform (recursive)', () => {
     }
   });
 
+  it('should reject the target case passed in place of the options', () => {
+    expect(() => transform({ user_id: 1 }, 'snake' as never)).toThrow(
+      new TypeError(
+        'Unsupported options "snake". Use an options object: { targetCase: "snake" }.',
+      ),
+    );
+  });
+
+  it('should ignore other values passed in place of the options, as transformKey does', () => {
+    // `rows.map(transform)` passes each row's index as the options
+    expect([{ user_id: 1 }, { first_name: 'a' }].map(transform)).toEqual([
+      { userId: 1 },
+      { firstName: 'a' },
+    ]);
+    for (const options of [null, true]) {
+      expect(transform({ user_id: 1 }, options as never)).toEqual({
+        userId: 1,
+      });
+    }
+  });
+
   it('should default to camelCase for an empty targetCase from plain JavaScript callers', () => {
     for (const targetCase of ['', null, undefined]) {
       expect(

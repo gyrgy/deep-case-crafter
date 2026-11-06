@@ -118,3 +118,14 @@ export type _keyNamed = Expect<
 
 export const keyOptions: TransformKeyOptions = { targetCase: 'kebab' };
 export const allOptions: TransformOptions = { ...keyOptions, depth: 1 };
+
+// Generic code reads the result's properties through the constraint of its input
+export function userIdOf<T extends { user_id: number; created_at: Date }>(
+  user: T,
+): [number, Date] {
+  const result = transform(user);
+  return [result.userId, result.createdAt];
+}
+
+// @ts-expect-error the target case goes in an options object: { targetCase: 'snake' }
+transform({ user_id: 1 }, 'snake');

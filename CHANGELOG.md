@@ -4,7 +4,47 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.4.1] - 2026-10-31
+## [3.5.0] - 2026-11-06
+
+### Added
+
+- `deep-case-crafter/package.json` can be required or imported (it threw
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`), as some tools do to read a dependency's version. The
+  package also declares `"sideEffects": false`, so bundlers can drop it when it is
+  unused, and `"type": "commonjs"`.
+- Readme: a table of the calls for common tasks, after the first example.
+
+### Changed
+
+- A string in place of the options throws a `TypeError` (see Fixed), also one that a
+  callback passes: lodash's `mapValues(object, transform)` passes each key, so it now
+  throws instead of converting each value to camelCase, and TypeScript does not report
+  it. Wrap the call: `mapValues(object, (value) => transform(value))`.
+- `rows.map(transform<Row>)` or `Array.from(rows, transform<Row>)`, with only the input
+  type given, no longer compiles under `strict`, since the callback receives each index
+  as the options (its result was typed `unknown[]`). `rows.map(transform)` compiles as
+  before, with an `unknown` result type; `rows.map((row) => transform(row))` gives the
+  precise one.
+- Options typed `object` (or, without `strict`, `unknown`), which may hold any
+  `targetCase`, give an `unknown` result type instead of the camelCase result.
+- Result types take about 7% fewer instantiations to check: only keys with at least four
+  hyphens are compared with the UUID form.
+- A shorter npm description.
+
+### Fixed
+
+- `transform(data, 'snake')`, with the target case in place of the options object,
+  converted to camelCase without an error. It now fails to compile and throws a
+  `TypeError`, as `transformKey(key, 'snake')` already did. A number or a boolean in
+  place of the options is a type error as well, and is still ignored at runtime, so that
+  `rows.map(transform)` keeps working.
+- Generic code can read the properties of a result through the constraint of its input:
+  `transform(user).userId` compiles in `<T extends { user_id: number }>(user: T) => ...`,
+  for every target case and option (it failed with TS2339). `TransformValue` and
+  `TransformValueExcluding` distribute over the input type for this. Declaration files
+  emitted with earlier versions refer to them with the same parameters, and keep working.
+
+## [3.4.1] - 2026-11-06
 
 ### Changed
 
@@ -336,6 +376,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0
 [3.4.1]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.1
 [3.4.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.0
 [3.3.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.3.0

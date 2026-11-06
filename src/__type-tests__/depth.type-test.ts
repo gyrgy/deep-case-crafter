@@ -77,3 +77,48 @@ export type _wide = Expect<
 export type _fractional = Expect<
   Equal<TransformResult<Nested, 'camel', 1.5>, unknown>
 >;
+
+// Generic code can put a value of its type parameter where the depth limit leaves values
+// as they are: the result type of that position is the parameter itself
+export function depth0<T>(value: T): TransformResult<T, 'camel', 0> {
+  return value;
+}
+export function envelope<T>(
+  payload: T,
+): TransformResult<
+  { response_data: T; meta_info: { request_id: string } },
+  'camel',
+  1
+> {
+  return { responseData: payload, metaInfo: { request_id: 'x' } };
+}
+export function excludedEnvelope<T>(
+  payload: T,
+): TransformResult<{ response_data: T }, 'camel', 1, ['response_data']> {
+  return { response_data: payload };
+}
+export function mapEnvelope<T>(
+  payload: T,
+): TransformResult<Map<'map_key', T>, 'camel', 1> {
+  return new Map([['mapKey', payload]]);
+}
+export function setEnvelope<T>(
+  payload: T,
+): TransformResult<Set<T>, 'camel', 1> {
+  return new Set([payload]);
+}
+export function excludedSetEnvelope<T>(
+  payload: T,
+): TransformResult<{ s_et: Set<T> }, 'camel', 2, ['s_et']> {
+  return { s_et: new Set([payload]) };
+}
+export function nestedEnvelope<T>(
+  payload: T,
+): TransformResult<{ outer_key: { inner_key: T } }, 'snake', 2> {
+  return { outer_key: { inner_key: payload } };
+}
+export function listEnvelope<T>(
+  payload: T[],
+): TransformResult<{ list_items: T[] }, 'camel', 1> {
+  return { listItems: payload };
+}

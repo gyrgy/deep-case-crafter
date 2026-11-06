@@ -26,6 +26,18 @@ const body = transform(user, { targetCase: 'snake' });
 //    ^? { user_id: number; first_name: string; orders: { order_id: number }[] }
 ```
 
+| For                                      | Use                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| camelCase keys                           | `transform(data)`                                                  |
+| snake_case keys                          | `transform(data, { targetCase: 'snake' })`                         |
+| kebab-case, PascalCase or CONSTANT_CASE  | `targetCase: 'kebab'`, `'pascal'` or `'constant'`                  |
+| One key                                  | `transformKey('user_id')` → `'userId'`                             |
+| Some keys left as they are               | `transform(data, { exclude: ['users_by_id.*'] })`                  |
+| The top level only                       | `transform(data, { depth: 1 })`                                    |
+| Faster conversion of `JSON.parse` output | `transform(data, { keepReferences: false })`                       |
+| `transform` as a callback                | `rows.map((row) => transform(row))`                                |
+| The result type, or a key's type         | `TransformResult<typeof data, 'snake'>`, `TransformKey<'user_id'>` |
+
 ## Features
 
 - **Exact result types**: every key is typed the way it is converted at runtime, so
@@ -193,8 +205,8 @@ function toSortParam(field: SortField) {
 
 ## How it compares
 
-Checked in October 2026 against
-[ts-case-convert](https://www.npmjs.com/package/ts-case-convert) 2.3.1 (the closest
+Checked in October and November 2026 against
+[ts-case-convert](https://www.npmjs.com/package/ts-case-convert) 2.3.2 (the closest
 typed alternative), [camelcase-keys](https://www.npmjs.com/package/camelcase-keys)
 10.0.3, [snakecase-keys](https://www.npmjs.com/package/snakecase-keys) 9.0.2 and
 [es-toolkit](https://www.npmjs.com/package/es-toolkit) 1.53.0 (`toCamelCaseKeys`,
@@ -304,7 +316,8 @@ The result **types** match all of this, so `result.get_http_response` and
 ### `transform(data, options)`
 
 - **data**: The data structure to transform (`object`, `array`, `Map`, or `Set`).
-- **options**:
+- **options**: An object. Passing the target case itself, `transform(data, 'snake')`,
+  does not compile and throws a `TypeError`.
   - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab' | 'constant'` (default: `'camel'`, also used for any falsy value such as `''`, `null` or `0`). Any other value throws a `TypeError`. `'constant'` is CONSTANT_CASE, also called SCREAMING_SNAKE_CASE: `userID` becomes `USER_ID`, split into words as for snake_case. It is a target case only: keys such as `USER_ID` or `ID` are left unchanged by every target case, so they do not convert back. A single capital, with or without digits, is still converted as a one-letter word: `'constant'` turns `p99` into `P99`, and camel, snake and kebab turn it back into `p99` (see [Key Preservation Rules](#key-preservation-rules)).
   - `depth` (optional): **How many nesting levels to transform** (default: `Infinity` — the whole structure; `null` means the same). `1` transforms only the top-level keys, `2` the keys one level down as well, and so on. The values of objects, Maps and Sets are one level deeper; array items stay on their array's level. A value that is not a number (`NaN`, `'3'`, `3n`) throws a `TypeError`.
   - `exclude` (optional): **Keys to leave unchanged**, as paths of keys joined with dots, such as `['users_by_id.*', 'metadata.*']` (default: none; `null` means the same). See [Leaving keys unchanged](#leaving-keys-unchanged). Anything but an array of such paths throws a `TypeError`.
@@ -357,7 +370,9 @@ known as `string[]` give an `unknown` result type.
 Wrap it in a function: `.then((data) => transform(data))`,
 `rows.map((row) => transform(row))`. Passed by name, `transform` gets an `unknown` result
 type, because TypeScript then uses its last overload, `transform<Input, Output>`, whose
-output it cannot infer, and `map` would pass each row's index as the options.
+output it cannot infer, and `map` would pass each row's index as the options. A callback
+that passes a string, such as the key in lodash's `mapValues(object, transform)`, makes it
+throw a `TypeError`.
 
 ### Result types
 
@@ -404,7 +419,7 @@ Converts a single key by the same rules as the keys of `transform`'s result.
 - **key**: The key to transform, a string. Anything else throws a `TypeError`.
 - **options**:
   - `targetCase` (optional): as for `transform` (default: `'camel'`). Pass it in an
-    object: `transformKey(key, 'snake')` throws a `TypeError`.
+    object: `transformKey(key, 'snake')` does not compile and throws a `TypeError`.
 
 ```typescript
 transformKey('HTTPResponse', { targetCase: 'snake' }); // 'http_response'
@@ -536,7 +551,9 @@ stable. Key outputs change only to fix bugs, and every change is listed in the
 store converted keys, such as database columns, check it before upgrading. A minor
 version can add an option, which `Required<TransformOptions>` and
 `Required<TransformKeyOptions>` then require, or a target case, which code that handles
-every member of `StringCase` then has to handle too.
+every member of `StringCase` then has to handle too. It can also reject at compile time
+options that the runtime ignores or rejects, as 3.5.0 did for a string or a number in
+place of the options object.
 
 ### Upgrading to v3
 

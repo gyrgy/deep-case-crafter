@@ -53,7 +53,9 @@ type IsUuid<
  * Keys the runtime leaves unchanged (`transformCase`): keys containing a
  * character outside `A-Z a-z 0-9 _ -`, keys not starting with a letter, keys ending with
  * a separator, and UUIDs. A UUID that starts with a digit is already preserved, so only
- * keys that the other rules do not preserve are compared with the UUID form.
+ * keys that the other rules do not preserve are compared with the UUID form, and only
+ * those with at least four hyphens, as a UUID has: most comparisons stop at the first or
+ * second character, but running one for every key adds up.
  */
 type IsPreservedKey<K extends string> =
   HasOnlyKeyChars<K> extends false
@@ -61,7 +63,9 @@ type IsPreservedKey<K extends string> =
     : K extends `${LowerLetter | UpperLetter}${string}`
       ? K extends `${string}${Separator}`
         ? true
-        : IsUuid<K>
+        : K extends `${string}-${string}-${string}-${string}-${string}`
+          ? IsUuid<K>
+          : false
       : true;
 
 /**

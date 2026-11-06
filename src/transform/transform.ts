@@ -13,6 +13,7 @@ import {
   TransformResultFor,
 } from '../types/transformTypes';
 import describeValue from '../utils/describeValue';
+import rejectStringOptions from '../utils/rejectStringOptions';
 import resolveTargetCase from '../utils/resolveTargetCase';
 
 /**
@@ -45,7 +46,11 @@ function transform<T>(data: T, options?: undefined): TransformResult<T>;
  * strings is still accepted, and so is `undefined`: with `exactOptionalPropertyTypes`, an
  * optional property only accepts it when its type includes it. The parameter type does
  * not mention `exclude` itself: intersecting the captured tuple with these types would
- * make every call compare array types member by member.
+ * make every call compare array types member by member. `object` rejects a primitive
+ * passed as the options, such as the target case itself in `transform(data, 'snake')`.
+ * Without it, such a value compiles: `Options` falls back to its constraint, whose
+ * `NoUnknownOptions` has no properties, and TypeScript only checks a value for a property
+ * in common with an intersection when every member has properties, all optional.
  *
  * The type parameter defaults only apply when type arguments are passed explicitly, and
  * give an `unknown` result type. An explicit `any` as the second type argument was the
@@ -69,7 +74,8 @@ function transform<
   options: Options & {
     targetCase?: To;
     depth?: Depth;
-  } & NoUnknownOptions<Options>,
+  } & NoUnknownOptions<Options> &
+    object,
 ): IsAny<To> extends true
   ? true extends HasAnyTargetCase<Options>
     ? unknown
@@ -106,6 +112,7 @@ function transform<T, K>(
 
 // Implementation
 function transform(data: unknown, options?: TransformOptions): unknown {
+  rejectStringOptions(options);
   const targetCaseOption = options?.targetCase;
   const depth = options?.depth ?? Infinity;
 

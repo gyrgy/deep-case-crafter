@@ -104,10 +104,10 @@ export type NoUnknownOptions<Options, Known = TransformOptions> = {
 
 /**
  * `NoUnknownOptions` for `transformKey`, but `unknown` when every option name is known.
- * The options parameter is then `TransformKeyOptions` itself rather than an
- * intersection, so TypeScript checks the argument for a property in common with it, as
- * it does for every type whose properties are all optional: `'snake'`, an array, or a
- * stored options object with only a misspelled option is rejected.
+ * The options parameter is then `TransformKeyOptions` itself, not an intersection with a
+ * type that has no properties, so TypeScript checks the argument for a property in
+ * common with it, as it does for every type whose properties are all optional: `'snake'`,
+ * an array, or a stored options object with only a misspelled option is rejected.
  */
 export type NoUnknownKeyOptions<Options> = [
   Exclude<keyof Options, keyof TransformKeyOptions>,
