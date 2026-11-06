@@ -27,22 +27,40 @@ All notable changes to deep-case-crafter are listed here. The format is based on
   precise one.
 - Options typed `object` (or, without `strict`, `unknown`), which may hold any
   `targetCase`, give an `unknown` result type instead of the camelCase result.
-- Result types take about 7% fewer instantiations to check: only keys with at least four
-  hyphens are compared with the UUID form.
+- `transformKey(key, 'foo')`, with a string that is not a target case in place of the
+  options, throws the message `transform` throws, which suggests `{ targetCase: "snake" }`
+  instead of `{ targetCase: "foo" }`.
+- Result types take fewer instantiations to check than in 3.4.1: about 4% fewer in this
+  package's type tests, and 12% for large nested types. Only keys with at least four
+  hyphens are compared with the UUID form, and the depth limit is checked once for each
+  object instead of once for each value.
+- With TypeScript 4.7 to 4.9, a primitive literal passed without options is typed by its
+  base type: `transform('id')` is `string`, not `'id'`, since the result type now
+  distributes over the input (see Fixed). TypeScript 5.0 and later keep the literal.
+- `transform` takes about 2.9 KB gzipped, bundled and minified (2.8 KB), with the messages
+  for string options.
 - A shorter npm description.
 
 ### Fixed
 
 - `transform(data, 'snake')`, with the target case in place of the options object,
   converted to camelCase without an error. It now fails to compile and throws a
-  `TypeError`, as `transformKey(key, 'snake')` already did. A number or a boolean in
-  place of the options is a type error as well, and is still ignored at runtime, so that
-  `rows.map(transform)` keeps working.
+  `TypeError`, as `transformKey(key, 'snake')` already did. Another primitive in place
+  of the options (a number, a boolean, a bigint or a symbol) is a type error as well, and
+  is still ignored at runtime, so that `rows.map(transform)` keeps working.
 - Generic code can read the properties of a result through the constraint of its input:
   `transform(user).userId` compiles in `<T extends { user_id: number }>(user: T) => ...`,
   for every target case and option (it failed with TS2339). `TransformValue` and
   `TransformValueExcluding` distribute over the input type for this. Declaration files
   emitted with earlier versions refer to them with the same parameters, and keep working.
+- Non-enumerable symbol-keyed properties were copied into the result, as enumerable ones.
+  They are left out, like non-enumerable string keys, as `{ ...object }` does.
+- Readme and option docs: with `keepReferences: false`, a getter on a circular path runs
+  up to 256 times before the conversion starts over (not twice), and an object is read
+  once for every copy made of it. Later calls convert up to about 5,200 levels of nesting,
+  depending on the data converted before, but not always 2,600 or more. A function with a
+  generic target case cannot annotate its result as `TransformResult<T, C>`, which the
+  readme advised for exported functions: leave it inferred.
 
 ## [3.4.1] - 2026-11-06
 

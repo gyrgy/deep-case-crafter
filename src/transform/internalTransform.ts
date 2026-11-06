@@ -154,9 +154,12 @@ export default function internalTransform(
       );
     }
 
-    // Symbol-keyed properties are copied across unchanged
+    // Enumerable symbol-keyed properties are copied across unchanged, as `{ ...source }`
+    // copies them: like string keys, non-enumerable ones are left out
     for (const sym of Object.getOwnPropertySymbols(source)) {
-      result[sym] = source[sym];
+      if (Object.prototype.propertyIsEnumerable.call(source, sym)) {
+        result[sym] = source[sym];
+      }
     }
 
     return result;

@@ -230,7 +230,7 @@ Where the others are better or different:
 
 - **Bundle size**: bundled and minified with esbuild, ts-case-convert's `objectToCamel`
   and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
-  2.8 KB.
+  2.9 KB.
 - **CONSTANT_CASE input**: camelcase-keys, snakecase-keys and es-toolkit also read
   SCREAMING_SNAKE_CASE keys, so `USER_ID` becomes `userId` or `user_id`.
   deep-case-crafter converts to CONSTANT_CASE, but leaves keys such as `USER_ID` and
@@ -321,7 +321,7 @@ The result **types** match all of this, so `result.get_http_response` and
   - `targetCase` (optional): `'camel' | 'snake' | 'pascal' | 'kebab' | 'constant'` (default: `'camel'`, also used for any falsy value such as `''`, `null` or `0`). Any other value throws a `TypeError`. `'constant'` is CONSTANT_CASE, also called SCREAMING_SNAKE_CASE: `userID` becomes `USER_ID`, split into words as for snake_case. It is a target case only: keys such as `USER_ID` or `ID` are left unchanged by every target case, so they do not convert back. A single capital, with or without digits, is still converted as a one-letter word: `'constant'` turns `p99` into `P99`, and camel, snake and kebab turn it back into `p99` (see [Key Preservation Rules](#key-preservation-rules)).
   - `depth` (optional): **How many nesting levels to transform** (default: `Infinity` — the whole structure; `null` means the same). `1` transforms only the top-level keys, `2` the keys one level down as well, and so on. The values of objects, Maps and Sets are one level deeper; array items stay on their array's level. A value that is not a number (`NaN`, `'3'`, `3n`) throws a `TypeError`.
   - `exclude` (optional): **Keys to leave unchanged**, as paths of keys joined with dots, such as `['users_by_id.*', 'metadata.*']` (default: none; `null` means the same). See [Leaving keys unchanged](#leaving-keys-unchanged). Anything but an array of such paths throws a `TypeError`.
-  - `keepReferences` (optional): **Whether shared and circular references keep their shape** (default: `true`; `null` means the same). An object reached through several references then gives one result, and a circular reference points back into the result. Pass `false` for data that cannot contain such references, such as the output of `JSON.parse`, to skip that bookkeeping: inputs with many objects and arrays convert up to about twice as fast. Use it for tree-shaped data only: an object is then copied once for every path that leads to it, so shared objects inside shared objects multiply. Data with more than 256 nested objects, arrays, Maps and Sets on one path, as circular references always have, is converted again from the start with the bookkeeping, so it takes longer and getters can run twice. With a finite `depth`, circular references stop at the depth limit before that, and are copied once per path down to it. Anything but a boolean throws a `TypeError`.
+  - `keepReferences` (optional): **Whether shared and circular references keep their shape** (default: `true`; `null` means the same). An object reached through several references then gives one result, and a circular reference points back into the result. Pass `false` for data that cannot contain such references, such as the output of `JSON.parse`, to skip that bookkeeping: inputs with many objects and arrays convert up to about twice as fast. Use it for tree-shaped data only: an object is then copied once for every path that leads to it, so shared objects inside shared objects multiply. Data with more than 256 nested objects, arrays, Maps and Sets on one path, as circular references always have, is converted again from the start with the bookkeeping. That takes longer and runs its getters again; a getter on a circular path has by then run up to 256 times. With a finite `depth`, a circular reference stops at the depth limit instead when that comes first, and is copied once per path down to it. Anything but a boolean throws a `TypeError`.
   - `sourceCase` (**deprecated**): has no effect. Every key's case is detected from the key itself, at runtime and in the result type. It is still accepted, and so is the 2.x form with explicit type arguments, `transform<Data, 'snake', 'camel'>(data, { sourceCase: 'snake', targetCase: 'camel' })`, except together with `depth`, `exclude` or `keepReferences` (leave the type arguments out to use them); the key types follow the runtime, not `sourceCase` (see [3.0.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#300---2026-10-25)).
 
 Circular references are resolved to the transformed object. With a finite `depth`, a
@@ -401,7 +401,9 @@ type of the `exclude` paths, such as `['metadata.*']`.
   symbol-keyed members fail to compile (TS7056, TS4118). For a target case typed
   `StringCase`, generic data included, the result can cover only the cases that existed
   when the library was built, not cases added later. A generic target case, as in
-  `<C extends StringCase>(targetCase: C)`, is not affected.
+  `<C extends StringCase>(targetCase: C)`, is not affected. Leave its result type
+  inferred: `TransformResult<T, C>` and `TransformKey<K, C>` do not match it, and its
+  declarations refer to the types by name.
 - Some values cannot be told apart by their types. `Error`, `URL`, boxed primitives,
   iterators, module namespace objects and other built-ins whose types do not declare a
   `Symbol.toStringTag` are returned untouched, but typed as plain objects with
@@ -502,16 +504,16 @@ paths in [`exclude`](#leaving-keys-unchanged).
 | Primitives, functions and built-ins such as `Date`, `RegExp`, `Error`, `URL`, `Promise`, typed arrays, `Buffer`                               | Returned untouched (the same reference)                                                    |
 | Objects with a `Symbol.toStringTag` of their own or from their class, `arguments` objects, module namespaces, and Proxies around a Map or Set | Returned untouched (the same reference)                                                    |
 
-Symbol-keyed properties are copied unchanged.
+Enumerable symbol-keyed properties are copied, with their values untransformed.
 
 Worth knowing:
 
 - If two keys of one object become the same key (`user_id` and `userId` both become
   `userId`), the last one wins.
-- Every property is read once, in order, and its value is transformed before the next one
-  is read; getters run during the transformation. Maps are read through their iterator.
-  With `keepReferences: false`, data with more than 256 nested objects, arrays, Maps and
-  Sets on one path is read a second time.
+- Every property is read in order, and its value is transformed before the next one is
+  read; getters run during the transformation. Maps are read through their iterator. An
+  object is read once for every copy made of it, which is one copy unless
+  `keepReferences: false` (see the option), `depth` or `exclude` (below) make several.
 - With `depth`, values below the limit are returned as they are: the result shares them
   with the input instead of copying them. An object reached at several levels is
   transformed once per level.
@@ -529,10 +531,10 @@ Measured with Node 24 on an Apple M4 Pro, with Node's default stack and memory s
 
 - **Nesting depth.** The conversion is recursive. Depending on the shape, the first call
   in a process converts 1,300 to 2,300 levels of nesting (nested Maps the fewest, nested
-  objects the most), and once the code is warm about 2,600 (nested arrays) to 5,200;
-  deeper data throws a `RangeError`. API data nests far less, but untrusted input can nest
-  deeper (`JSON.parse` accepts millions of levels), so catch the error where such input is
-  converted.
+  objects the most); deeper data throws a `RangeError`. Later calls can go deeper, up to
+  about 5,200 levels, depending on the data converted before. API data nests far less,
+  but untrusted input can nest deeper (`JSON.parse` accepts millions of levels), so catch
+  the error where such input is converted.
 - **Size.** There is no fixed limit on keys, objects or array items. The result is a full
   copy, so the input and the result must both fit in memory: converting 1 million records
   with 30 million keys (725 MB in memory) needed 1.5 GB more at its peak, and 1.1 GB with

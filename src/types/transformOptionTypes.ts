@@ -56,9 +56,10 @@ export interface TransformOptions extends TransformKeyOptions {
    * Use it only for tree-shaped data. An object is then copied once for every path that
    * leads to it, so shared objects inside shared objects multiply. Data with more than
    * 256 nested objects, arrays, Maps and Sets on one path, as circular references always
-   * have, is converted again from the start with the bookkeeping, so it takes longer and
-   * getters can run twice. With a finite `depth`, circular references stop at the depth
-   * limit before that, and are copied once per path down to it.
+   * have, is converted again from the start with the bookkeeping. That takes longer and
+   * runs its getters again; a getter on a circular path has by then run up to 256 times.
+   * With a finite `depth`, a circular reference stops at the depth limit instead when that
+   * comes first, and is copied once per path down to it.
    *
    * @default true
    */
