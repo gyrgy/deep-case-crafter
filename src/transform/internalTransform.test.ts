@@ -189,6 +189,24 @@ describe('internalTransform', () => {
       expect(result[sym]).toBe(meta);
     });
 
+    it('should leave out non-enumerable symbol-keyed properties, like string keys', () => {
+      const hidden = Symbol('hidden');
+      const input = { user_id: 1 };
+      Object.defineProperty(input, hidden, {
+        get: () => {
+          throw new Error('read');
+        },
+        enumerable: false,
+      });
+      Object.defineProperty(input, 'hidden_key', {
+        value: 2,
+        enumerable: false,
+      });
+      const result = internalTransform(input, options) as object;
+      expect(Object.getOwnPropertySymbols(result)).toEqual([]);
+      expect(Object.getOwnPropertyNames(result)).toEqual(['userId']);
+    });
+
     it('should transform own properties only, not inherited ones', () => {
       const input = Object.create({ proto_prop: 1 });
       input.own_prop = 2;

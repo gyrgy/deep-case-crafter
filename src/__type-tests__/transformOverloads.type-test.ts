@@ -147,6 +147,33 @@ const config = { targetCase: 'snake' as const, retries: 3 };
 const _configResult = transform(data, config);
 export type _config = Expect<Equal<typeof _configResult, unknown>>;
 
+// The target case passed in place of the options, or another primitive, is rejected: at
+// runtime a string throws, and other primitives are ignored (camelCase)
+// @ts-expect-error the options are an object: { targetCase: 'snake' }
+transform(data, 'snake');
+// @ts-expect-error a number is not an options object either
+transform(data, 5);
+
+// Passed by name as a callback, `transform` still compiles, with an unknown result type
+declare const rows: (typeof data)[];
+const _mappedResult = rows.map(transform);
+export type _mapped = Expect<Equal<typeof _mappedResult, unknown[]>>;
+
+// Generic code can read the result's properties through the constraint of its input
+type ApiUser = { user_id: number; created_at: Date; users_by_id: { u_1: 1 } };
+export function idOf<T extends ApiUser>(user: T): number {
+  return transform(user).userId;
+}
+export function createdAtOf<T extends ApiUser>(user: T): Date {
+  return transform(user, { targetCase: 'pascal' }).CreatedAt;
+}
+export function snakeIdOf<T extends { userId: number }>(user: T): number {
+  return transform(user, { targetCase: 'snake' }).user_id;
+}
+export function usersOf<T extends ApiUser>(user: T): { u_1: 1 } {
+  return transform(user, { exclude: ['users_by_id.*'] }).usersById;
+}
+
 // keepReferences does not change the result type
 const _keepReferencesResult = transform(data, { keepReferences: false });
 export type _keepReferences = Expect<

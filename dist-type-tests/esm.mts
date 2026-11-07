@@ -118,3 +118,34 @@ export type _keyNamed = Expect<
 
 export const keyOptions: TransformKeyOptions = { targetCase: 'kebab' };
 export const allOptions: TransformOptions = { ...keyOptions, depth: 1 };
+
+// Generic code reads the result's properties through the constraint of its input
+export function userIdOf<T extends { user_id: number; created_at: Date }>(
+  user: T,
+): [number, Date] {
+  const result = transform(user);
+  return [result.userId, result.createdAt];
+}
+
+// A generic result annotated with its options: the inline paths are still read as a tuple
+// (TypeScript 4.7 infers them from the annotation too, and the call's result was `unknown`)
+export function withPaths<T>(
+  data: T,
+): TransformResult<T, 'snake', undefined, ['meta.*']> {
+  return transform(data, { targetCase: 'snake', exclude: ['meta.*'] });
+}
+export function withDepthAndPaths<T>(
+  data: T,
+): TransformResult<T, 'pascal', 2, ['a', 'b.*']> {
+  return transform(data, {
+    targetCase: 'pascal',
+    depth: 2,
+    exclude: ['a', 'b.*'],
+  });
+}
+export function withDepth<T>(data: T): TransformResult<T, 'kebab', 3> {
+  return transform(data, { targetCase: 'kebab', depth: 3 });
+}
+
+// @ts-expect-error the target case goes in an options object: { targetCase: 'snake' }
+transform({ user_id: 1 }, 'snake');

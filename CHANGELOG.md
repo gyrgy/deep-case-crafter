@@ -4,7 +4,65 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.4.1] - 2026-10-31
+## [3.5.0] - 2026-11-06
+
+### Added
+
+- `deep-case-crafter/package.json` can be required or imported (it threw
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`), as some tools do to read a dependency's version. The
+  package also declares `"sideEffects": false`, so bundlers can drop it when it is
+  unused, and `"type": "commonjs"`.
+- Readme: a table of the calls for common tasks, after the first example.
+
+### Changed
+
+- A string in place of the options throws a `TypeError` (see Fixed), also one that a
+  callback passes: lodash's `mapValues(object, transform)` passes each key, so it now
+  throws instead of converting each value to camelCase, and TypeScript does not report
+  it. Wrap the call: `mapValues(object, (value) => transform(value))`.
+- `rows.map(transform<Row>)` or `Array.from(rows, transform<Row>)`, with only the input
+  type given, no longer compiles under `strict`, since the callback receives each index
+  as the options (its result was typed `unknown[]`). `rows.map(transform)` compiles as
+  before, with an `unknown` result type; `rows.map((row) => transform(row))` gives the
+  precise one.
+- Options typed `object` (or, without `strict`, `unknown`), which may hold any
+  `targetCase`, give an `unknown` result type instead of the camelCase result.
+- `transformKey(key, 'foo')`, with a string that is not a target case in place of the
+  options, throws the message `transform` throws, which suggests `{ targetCase: "snake" }`
+  instead of `{ targetCase: "foo" }`.
+- Result types take fewer instantiations to check than in 3.4.1: about 4% fewer in this
+  package's type tests, and 12% for large nested types. Only keys with at least four
+  hyphens are compared with the UUID form, and the depth limit is checked once for each
+  object instead of once for each value.
+- With TypeScript 4.7 to 4.9, a primitive literal passed without options is typed by its
+  base type: `transform('id')` is `string`, not `'id'`, since the result type now
+  distributes over the input (see Fixed). TypeScript 5.0 and later keep the literal.
+- `transform` takes about 2.9 KB gzipped, bundled and minified (2.8 KB), with the messages
+  for string options.
+- A shorter npm description.
+
+### Fixed
+
+- `transform(data, 'snake')`, with the target case in place of the options object,
+  converted to camelCase without an error. It now fails to compile and throws a
+  `TypeError`, as `transformKey(key, 'snake')` already did. Another primitive in place
+  of the options (a number, a boolean, a bigint or a symbol) is a type error as well, and
+  is still ignored at runtime, so that `rows.map(transform)` keeps working.
+- Generic code can read the properties of a result through the constraint of its input:
+  `transform(user).userId` compiles in `<T extends { user_id: number }>(user: T) => ...`,
+  for every target case and option (it failed with TS2339). `TransformValue` and
+  `TransformValueExcluding` distribute over the input type for this. Declaration files
+  emitted with earlier versions refer to them with the same parameters, and keep working.
+- Non-enumerable symbol-keyed properties were copied into the result, as enumerable ones.
+  They are left out, like non-enumerable string keys, as `{ ...object }` does.
+- Readme and option docs: with `keepReferences: false`, a getter on a circular path runs
+  up to 256 times before the conversion starts over (not twice), and an object is read
+  once for every copy made of it. Later calls convert up to about 5,200 levels of nesting,
+  depending on the data converted before, but not always 2,600 or more. A function with a
+  generic target case cannot annotate its result as `TransformResult<T, C>`, which the
+  readme advised for exported functions: leave it inferred.
+
+## [3.4.1] - 2026-11-06
 
 ### Changed
 
@@ -336,6 +394,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0
 [3.4.1]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.1
 [3.4.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.0
 [3.3.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.3.0

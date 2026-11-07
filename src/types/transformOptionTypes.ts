@@ -56,9 +56,10 @@ export interface TransformOptions extends TransformKeyOptions {
    * Use it only for tree-shaped data. An object is then copied once for every path that
    * leads to it, so shared objects inside shared objects multiply. Data with more than
    * 256 nested objects, arrays, Maps and Sets on one path, as circular references always
-   * have, is converted again from the start with the bookkeeping, so it takes longer and
-   * getters can run twice. With a finite `depth`, circular references stop at the depth
-   * limit before that, and are copied once per path down to it.
+   * have, is converted again from the start with the bookkeeping. That takes longer and
+   * runs its getters again; a getter on a circular path has by then run up to 256 times.
+   * With a finite `depth`, a circular reference stops at the depth limit instead when that
+   * comes first, and is copied once per path down to it.
    *
    * @default true
    */
@@ -104,10 +105,10 @@ export type NoUnknownOptions<Options, Known = TransformOptions> = {
 
 /**
  * `NoUnknownOptions` for `transformKey`, but `unknown` when every option name is known.
- * The options parameter is then `TransformKeyOptions` itself rather than an
- * intersection, so TypeScript checks the argument for a property in common with it, as
- * it does for every type whose properties are all optional: `'snake'`, an array, or a
- * stored options object with only a misspelled option is rejected.
+ * The options parameter is then `TransformKeyOptions` itself, not an intersection with a
+ * type that has no properties, so TypeScript checks the argument for a property in
+ * common with it, as it does for every type whose properties are all optional: `'snake'`,
+ * an array, or a stored options object with only a misspelled option is rejected.
  */
 export type NoUnknownKeyOptions<Options> = [
   Exclude<keyof Options, keyof TransformKeyOptions>,

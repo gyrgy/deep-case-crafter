@@ -1,7 +1,8 @@
 {
   "name": "deep-case-crafter",
-  "version": "3.4.1",
-  "description": "Convert object keys between camelCase, snake_case, kebab-case and PascalCase, or to CONSTANT_CASE, deeply (objects, arrays, Map, Set), with exact TypeScript types",
+  "version": "3.5.0",
+  "description": "Convert object keys between camelCase and snake_case, deeply, with exact TypeScript types",
+  "type": "commonjs",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -15,14 +16,16 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.js"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/gyrgy/deep-case-crafter.git"
+    "url": "git+https://github.com/gyrgy/deep-case-crafter.git"
   },
   "bugs": {
     "url": "https://github.com/gyrgy/deep-case-crafter/issues"

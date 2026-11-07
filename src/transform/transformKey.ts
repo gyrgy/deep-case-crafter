@@ -6,6 +6,7 @@ import {
 } from '../types/transformOptionTypes';
 import { TransformKeyFor } from '../types/transformTypes';
 import describeValue from '../utils/describeValue';
+import rejectStringOptions from '../utils/rejectStringOptions';
 import resolveTargetCase from '../utils/resolveTargetCase';
 
 /**
@@ -60,14 +61,7 @@ function transformKey(key: string, options?: TransformKeyOptions): string {
   if (typeof key !== 'string') {
     throw new TypeError(`Unsupported key ${describeValue(key)}. Use a string.`);
   }
-  // The likely mistake of passing the target case itself. Other values that are not
-  // options objects are ignored, as transform ignores them: `keys.map(transformKey)`
-  // passes each key's index.
-  if (typeof options === 'string') {
-    throw new TypeError(
-      `Unsupported options ${describeValue(options)}. Use an options object: { targetCase: ${describeValue(options)} }.`,
-    );
-  }
+  rejectStringOptions(options);
 
   // Not remembered like object keys (`transformObjectKey`): any string can be passed
   // here, such as a slice of a much larger string, which a cache entry would keep alive

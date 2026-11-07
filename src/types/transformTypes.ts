@@ -46,11 +46,43 @@ type NextLevel<Depth extends number | undefined, Level extends unknown[]> = [
   : [...Level, unknown];
 
 /**
+ * A value at the nesting level `Level`: `T` itself once `Depth` is reached, and
+ * `TransformValue` below it. Checked before `TransformValue` distributes over `T`:
+ * generic code can then assign a `T` to `TransformResult<T, 'camel', 0>`, and to the
+ * values of a Map or Set at the depth limit. The properties of an object are checked
+ * once for the whole object instead (see `TransformValue`). `TransformValue` keeps its
+ * own check, which declaration files emitted with earlier versions rely on
+ * (`TransformValue<T, "camel", 1, [unknown]>`).
+ */
+type TransformValueAt<
+  T,
+  To extends StringCase,
+  Depth extends number | undefined,
+  Level extends unknown[],
+> =
+  IsDepthReached<Depth, Level> extends true
+    ? T
+    : TransformValue<T, To, Depth, Level>;
+
+/**
  * Transforms `T` the way `internalTransform` does: arrays keep their nesting level,
  * while the values of objects, Maps and Sets are one level deeper.
  *
  * Arrays are typed as arrays of transformed items, which lets TypeScript defer
  * recursive types such as a JSON value type; only tuples are mapped position by position.
+ *
+ * Its first check, `T extends Primitive`, distributes over `T`, so that TypeScript can
+ * resolve it through the constraint of a type parameter: `transform(user).userId`
+ * compiles in `<T extends { user_id: number }>(user: T) => ...`. `any` takes both
+ * branches, which gives `any`. TypeScript before 5.0 no longer sees `T` itself in the
+ * result, so it widens a literal argument: `transform('id')` is `string` there.
+ * `T extends object ? ... : T` would keep it, but `T` then becomes `T & object` in the
+ * branch that transforms it, which makes large types up to 70% slower to check.
+ *
+ * Where the depth limit leaves values as they are, it is checked before this type is
+ * entered, so that a `T` can still be assigned there: once for all the properties of an
+ * object (the costliest place to check it per value), and in `TransformValueAt`
+ * elsewhere.
  *
  * Use `TransformResult` instead. This type is exported only so that declaration files
  * can refer to it: the result of a generic wrapper around `transform` is written in terms
@@ -61,30 +93,35 @@ export type TransformValue<
   To extends StringCase,
   Depth extends number | undefined,
   Level extends unknown[],
-> =
-  IsAny<T> extends true
+> = T extends Primitive
+  ? T
+  : IsAny<T> extends true
     ? T
     : IsDepthReached<Depth, Level> extends true
       ? T
-      : T extends Primitive
-        ? T
-        : T extends readonly (infer Item)[]
-          ? number extends T['length']
-            ? T extends unknown[]
-              ? TransformValue<Item, To, Depth, Level>[]
-              : readonly TransformValue<Item, To, Depth, Level>[]
-            : { [I in keyof T]: TransformValue<T[I], To, Depth, Level> }
-          : T extends ReadonlyMap<infer K, infer V>
-            ? Map<
-                K extends string ? TransformKey<K, To> : K,
-                TransformValue<V, To, Depth, NextLevel<Depth, Level>>
-              >
-            : T extends ReadonlySet<infer V>
-              ? Set<TransformValue<V, To, Depth, NextLevel<Depth, Level>>>
-              : T extends UntouchedValue
-                ? T
-                : T extends object
+      : T extends readonly (infer Item)[]
+        ? number extends T['length']
+          ? T extends unknown[]
+            ? TransformValue<Item, To, Depth, Level>[]
+            : readonly TransformValue<Item, To, Depth, Level>[]
+          : { [I in keyof T]: TransformValue<T[I], To, Depth, Level> }
+        : T extends ReadonlyMap<infer K, infer V>
+          ? Map<
+              K extends string ? TransformKey<K, To> : K,
+              TransformValueAt<V, To, Depth, NextLevel<Depth, Level>>
+            >
+          : T extends ReadonlySet<infer V>
+            ? Set<TransformValueAt<V, To, Depth, NextLevel<Depth, Level>>>
+            : T extends UntouchedValue
+              ? T
+              : T extends object
+                ? IsDepthReached<Depth, NextLevel<Depth, Level>> extends true
                   ? {
+                      [K in keyof T as K extends string
+                        ? TransformKey<K, To>
+                        : K]: T[K];
+                    }
+                  : {
                       [K in keyof T as K extends string
                         ? TransformKey<K, To>
                         : K]: K extends symbol
@@ -96,14 +133,18 @@ export type TransformValue<
                             NextLevel<Depth, Level>
                           >;
                     }
-                  : T;
+                : T;
 
 /**
  * `TransformValue` while `exclude` paths still match: `Paths` is the rest of each of them
  * below this level (see `excludeTypes.ts`). A key at which a path ends keeps its name,
  * and the paths that continue below a key go on into its value. Arrays and Sets pass
  * them on to their items, which add no key to a path. Values that no path reaches are
- * transformed by `TransformValue`.
+ * transformed by `TransformValue`. Like `TransformValue`, it distributes over `T`, but
+ * with a check of its own (`T extends unknown`): with `TransformValue`'s first check,
+ * TypeScript 4.7 reads the inline paths of a call whose result is annotated, as in
+ * `(x: T): TransformResult<T, 'camel', undefined, ['a.*']> => transform(x, { exclude:
+ * ['a.*'] })`, as a `string[]`, and the call's result as `unknown`.
  *
  * Use `TransformResult` instead. This type is exported for the same reason as
  * `TransformValue`.
@@ -114,8 +155,8 @@ export type TransformValueExcluding<
   Depth extends number | undefined,
   Level extends unknown[],
   Paths extends string,
-> =
-  IsAny<T> extends true
+> = T extends unknown
+  ? IsAny<T> extends true
     ? T
     : IsDepthReached<Depth, Level> extends true
       ? T
@@ -154,13 +195,7 @@ export type TransformValueExcluding<
               >
             : T extends ReadonlySet<infer V>
               ? Set<
-                  TransformValueExcluding<
-                    V,
-                    To,
-                    Depth,
-                    NextLevel<Depth, Level>,
-                    Paths
-                  >
+                  TransformBelow<V, To, Depth, NextLevel<Depth, Level>, Paths>
                 >
               : T extends UntouchedValue
                 ? T
@@ -181,7 +216,8 @@ export type TransformValueExcluding<
                             KeyName<K & (string | number)>
                           >;
                     }
-                  : T;
+                  : T
+  : never;
 
 /**
  * A key of an object, or a member of a Map's key type: it keeps its name where a path
@@ -202,16 +238,22 @@ type ExcludingKey<
       : TransformKey<K, To>
   : K;
 
-/** `T` with the paths `Paths` that go on into it: by `TransformValue` once none is left */
+/**
+ * `T` with the paths `Paths` that go on into it: by `TransformValue` once none is left,
+ * and `T` itself at the depth limit (see `TransformValueAt`)
+ */
 type TransformBelow<
   T,
   To extends StringCase,
   Depth extends number | undefined,
   Level extends unknown[],
   Paths extends string,
-> = [Paths] extends [never]
-  ? TransformValue<T, To, Depth, Level>
-  : TransformValueExcluding<T, To, Depth, Level, Paths>;
+> =
+  IsDepthReached<Depth, Level> extends true
+    ? T
+    : [Paths] extends [never]
+      ? TransformValue<T, To, Depth, Level>
+      : TransformValueExcluding<T, To, Depth, Level, Paths>;
 
 /**
  * The value `T` under the key `Key`. A key type that is not a single literal may stand
@@ -284,7 +326,7 @@ type TransformWithDepth<
   ? T
   : `${Depth}` extends `${string}${'.' | 'e'}${string}`
     ? unknown
-    : TransformValue<T, To, Depth, []>;
+    : TransformValueAt<T, To, Depth, []>;
 
 /**
  * `true` for a numeric literal, branded or not (`2`, `2 & Brand`), and `false` for
@@ -330,7 +372,7 @@ type TransformToDepthExcluding<
         ? T
         : `${Depth & number}` extends `${string}${'.' | 'e'}${string}`
           ? unknown
-          : TransformValueExcluding<T, To, Depth & number, [], Paths>
+          : TransformBelow<T, To, Depth & number, [], Paths>
       : unknown
   : never;
 
