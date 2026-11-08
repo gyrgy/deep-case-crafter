@@ -12,6 +12,7 @@ describe('excludePaths', () => {
     depth: 3,
     keepReferences: true,
     exclude: null,
+    layouts: null,
   };
 
   /** The state for `paths`, which are expected to be valid and not empty */
