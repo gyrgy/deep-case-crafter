@@ -37,10 +37,12 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 - A call learns at most 16 layouts. With `exclude`, each set of matching paths learns on
   its own.
 - Nesting depth: the first call in a process converts 2–4% deeper data than before
-  (nested objects 2,400 instead of 2,300 levels). Later calls convert nested objects about
+  (nested objects 2,400 instead of 2,300 levels). After ordinary API payloads, later calls
+  convert every shape at least as deep as before (nested objects 2,500 instead of 2,400
+  levels). After deeply nested data of the same shape, they convert nested objects about
   8% deeper (4,800 instead of 4,400 levels), and nested arrays, Maps and Sets, or objects
   and arrays in turn, about 8% less deep (4,800 instead of 5,200). Objects, arrays, Maps
-  and Sets nested in turn convert 5% less deep in later calls (3,300 instead of 3,500).
+  and Sets nested in turn then convert 5% less deep (3,300 instead of 3,500).
 - The package is built for ES2018 (it was ES2016), for the object spread syntax that
   makes the copies. It needs Node 8.3, Chrome 60, Firefox 55, Safari 11.1 (iOS 11.3),
   Samsung Internet 8 or Edge 79, or later: Edge 17 and 18 and Safari 11.0 no longer load
