@@ -4,6 +4,52 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Results of 20 to 200 keys take a quarter to a seventh of the memory and read faster,
+  and most of them convert faster. V8 stores an object built with computed keys, as
+  `transform` builds its results, in dictionary mode from its 20th key, unless a fast
+  object with the same keys in the same order already exists: each object then holds its
+  own table of keys. `transform` now makes one, with a single copy, from the second result
+  of each layout that repeats in a call, so the results after it are fast objects.
+  Measured with Node 24 on an Apple M4 Pro, records of 20 to 50 keys convert in 41–49%
+  less time, in calls of 50 to 60,000 records, and wider ones in 7–29% less, except
+  records of about 150 to 170 keys, which take up to 3% longer. Reading the results by
+  property name is 1.6 to 4 times as fast, with `for...in` 2.6 times and with
+  `Object.values` 20 times; reading them by a computed key from a list of keys takes 1.4
+  times as long (2.2 times at 100 keys). 1 million records of 30 keys convert in 0.7
+  instead of 1.4 seconds, with 420 MB instead of 1.7 GB more memory at the peak. Other
+  data converts within 2% of the time it took before.
+- These convert as before:
+  - the first two results of each layout in a call, so a call with only one or two
+    records of a layout gains only while results of that layout from an earlier call
+    are still in memory;
+  - layouts seen once in a call, such as those of objects keyed by IDs, and layouts that
+    come back only after 16 other new layouts of 20 to 200 keys;
+  - objects of more than 200 keys, which V8 builds faster in dictionary mode;
+  - records that come in many shapes, with optional keys present or left out. A call
+    stops learning once a result has the number of keys and the last key of a layout it
+    has seen once, but other keys, since such data reads faster when all of it stays in
+    dictionary mode. A result with the number of keys and the last key of a layout the
+    call has already learned, but other keys, stays in dictionary mode.
+- A call learns at most 16 layouts. With `exclude`, each set of matching paths learns on
+  its own.
+- Nesting depth: the first call in a process converts 2–4% deeper data than before
+  (nested objects 2,400 instead of 2,300 levels). Later calls convert nested objects about
+  8% deeper (4,800 instead of 4,400 levels), and nested arrays, Maps and Sets, or objects
+  and arrays in turn, about 8% less deep (4,800 instead of 5,200). Objects, arrays, Maps
+  and Sets nested in turn convert 5% less deep in later calls (3,300 instead of 3,500).
+- The package is built for ES2018 (it was ES2016), for the object spread syntax that
+  makes the copies. It needs Node 8.3, Chrome 60, Firefox 55, Safari 11.1 (iOS 11.3),
+  Samsung Internet 8 or Edge 79, or later: Edge 17 and 18 and Safari 11.0 no longer load
+  it.
+- `transform` takes about 3.2 KB gzipped, bundled and minified (2.9 KB).
+- Readme: the figures under Limits are measured on 1 million records of 30 keys as
+  `JSON.parse` returns them, which take 260 MB. On that input, 3.5.0 needed 1.7 GB more
+  at its peak.
+
 ## [3.5.0] - 2026-11-06
 
 ### Added

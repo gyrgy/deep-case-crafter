@@ -109,6 +109,7 @@ function createState(
     depth,
     keepReferences,
     exclude: null,
+    layouts: null,
   };
   const state: ExcludeState = {
     options,

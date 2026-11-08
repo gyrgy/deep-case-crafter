@@ -136,7 +136,7 @@ function transform(data: unknown, options?: TransformOptions): unknown {
     try {
       return run(
         data,
-        { targetCase, depth, keepReferences, exclude: null },
+        { targetCase, depth, keepReferences, exclude: null, layouts: null },
         exclude,
       );
     } catch (error) {
@@ -147,7 +147,7 @@ function transform(data: unknown, options?: TransformOptions): unknown {
   }
   return run(
     data,
-    { targetCase, depth, keepReferences: true, exclude: null },
+    { targetCase, depth, keepReferences: true, exclude: null, layouts: null },
     exclude,
   );
 }

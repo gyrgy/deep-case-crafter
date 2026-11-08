@@ -1,3 +1,4 @@
+import { DICTIONARY_MODE_KEYS } from '../constants/fastObjects';
 import { OBJECT_TAG } from '../constants/objectTag';
 import { UNTRACKED_NESTING_LIMIT } from '../constants/referenceTables';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
@@ -5,7 +6,9 @@ import getObjectTag from '../utils/getObjectTag';
 import isMap from '../utils/isMap';
 import isSet from '../utils/isSet';
 import setKey from '../utils/setKey';
+import copySymbolProperties from './copySymbolProperties';
 import { ExcludeState, excludeStep, stepScope } from './excludePaths';
+import learnLayout from './learnLayout';
 import {
   ReferenceTable,
   findReference,
@@ -67,9 +70,7 @@ export default function internalTransform(
   const tracked = options.keepReferences;
   if (tracked) {
     const seen = findReference((visitedRefs[level] ??= new Map()), data);
-    if (seen !== undefined) {
-      return seen;
-    }
+    if (seen !== undefined) return seen;
   } else if (nesting >= UNTRACKED_NESTING_LIMIT) {
     throw NESTING_LIMIT_REACHED;
   }
@@ -120,31 +121,7 @@ export default function internalTransform(
     const result: Record<PropertyKey, unknown> = {};
     if (tracked) recordReference(visitedRefs, level, data, result);
 
-    if (options.exclude === null) {
-      // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped).
-      // Values that are not objects are stored without a call.
-      for (const key in source) {
-        if (Object.prototype.hasOwnProperty.call(source, key)) {
-          const resultKey = transformObjectKey(key, options.targetCase);
-          const value = source[key];
-          if (typeof value !== 'object' || value === null) {
-            setKey(result, resultKey, value);
-            continue;
-          }
-          setKey(
-            result,
-            resultKey,
-            internalTransform(
-              value,
-              options,
-              visitedRefs,
-              nextDepth,
-              nesting + 1,
-            ),
-          );
-        }
-      }
-    } else {
+    if (options.exclude !== null) {
       transformExcludedProperties(
         source,
         result,
@@ -152,16 +129,48 @@ export default function internalTransform(
         nextDepth,
         nesting,
       );
+      return result;
     }
 
-    // Enumerable symbol-keyed properties are copied across unchanged, as `{ ...source }`
-    // copies them: like string keys, non-enumerable ones are left out
-    for (const sym of Object.getOwnPropertySymbols(source)) {
-      if (Object.prototype.propertyIsEnumerable.call(source, sym)) {
-        result[sym] = source[sym];
+    // How many keys `result` gets (see `learnLayout`)
+    let width = 0;
+    // The key being stored: after the loop, the last one
+    let resultKey = '';
+
+    // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped).
+    // Values that are not objects are stored without a call.
+    for (const key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        resultKey = transformObjectKey(key, options.targetCase);
+        width++;
+        const value = source[key];
+        if (typeof value !== 'object' || value === null) {
+          setKey(result, resultKey, value);
+          continue;
+        }
+        setKey(
+          result,
+          resultKey,
+          internalTransform(
+            value,
+            options,
+            visitedRefs,
+            nextDepth,
+            nesting + 1,
+          ),
+        );
       }
     }
 
+    width += copySymbolProperties(source, result);
+    // `done` is checked here as well: once a call has stopped learning, its objects then
+    // cost no call
+    if (
+      width >= DICTIONARY_MODE_KEYS &&
+      (options.layouts === null || !options.layouts.done)
+    ) {
+      learnLayout(options, result, width, resultKey);
+    }
     return result;
   }
 
@@ -244,13 +253,19 @@ function transformExcludedProperties(
   depth: number,
   nesting: number,
 ): void {
+  let width = 0;
+  let resultKey = '';
   for (const key in source) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       const step = excludeStep(state, key);
       const scope = stepScope(state, step);
+      resultKey = step.keepKey
+        ? key
+        : transformObjectKey(key, state.options.targetCase);
+      width++;
       setKey(
         result,
-        step.keepKey ? key : transformObjectKey(key, state.options.targetCase),
+        resultKey,
         internalTransform(
           source[key],
           scope.options,
@@ -260,6 +275,11 @@ function transformExcludedProperties(
         ),
       );
     }
+  }
+
+  width += copySymbolProperties(source, result);
+  if (width >= DICTIONARY_MODE_KEYS) {
+    learnLayout(state.options, result, width, resultKey);
   }
 }
 

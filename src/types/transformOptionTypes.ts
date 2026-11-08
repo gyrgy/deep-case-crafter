@@ -1,4 +1,5 @@
 import type { ExcludeState } from '../transform/excludePaths';
+import type { LayoutMemory } from '../transform/learnLayout';
 import { PlainCase, StringCase } from './stringCaseTypes';
 
 /**
@@ -91,6 +92,12 @@ export interface TransformOptionsInternal {
    * `null` where none does (everywhere, without `exclude`)
    */
   exclude: ExcludeState | null;
+
+  /**
+   * The layouts of the call's wide results, for `learnLayout`: `null` until the first one.
+   * With `exclude`, every set of matching paths has its own.
+   */
+  layouts: LayoutMemory | null;
 }
 
 /**

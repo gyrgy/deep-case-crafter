@@ -230,7 +230,7 @@ Where the others are better or different:
 
 - **Bundle size**: bundled and minified with esbuild, ts-case-convert's `objectToCamel`
   and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
-  2.9 KB.
+  3.2 KB.
 - **CONSTANT_CASE input**: camelcase-keys, snakecase-keys and es-toolkit also read
   SCREAMING_SNAKE_CASE keys, so `USER_ID` becomes `userId` or `user_id`.
   deep-case-crafter converts to CONSTANT_CASE, but leaves keys such as `USER_ID` and
@@ -530,16 +530,16 @@ Worth knowing:
 Measured with Node 24 on an Apple M4 Pro, with Node's default stack and memory sizes:
 
 - **Nesting depth.** The conversion is recursive. Depending on the shape, the first call
-  in a process converts 1,300 to 2,300 levels of nesting (nested Maps the fewest, nested
+  in a process converts 1,300 to 2,400 levels of nesting (nested Maps the fewest, nested
   objects the most); deeper data throws a `RangeError`. Later calls can go deeper, up to
-  about 5,200 levels, depending on the data converted before. API data nests far less,
+  about 4,800 levels, depending on the data converted before. API data nests far less,
   but untrusted input can nest deeper (`JSON.parse` accepts millions of levels), so catch
   the error where such input is converted.
 - **Size.** There is no fixed limit on keys, objects or array items. The result is a full
   copy, so the input and the result must both fit in memory: converting 1 million records
-  with 30 million keys (725 MB in memory) needed 1.5 GB more at its peak, and 1.1 GB with
-  `keepReferences: false`. When memory runs out, Node ends the process, which cannot be
-  caught.
+  of 30 keys (260 MB in memory, as `JSON.parse` returns them) took 0.7 seconds and needed
+  420 MB more at its peak, and 370 MB with `keepReferences: false`. When memory runs out,
+  Node ends the process, which cannot be caught.
 - **Long keys.** Conversion time grows linearly with a key's length: about 20 ms for a key
   of a million characters.
 

@@ -24,6 +24,7 @@ describe('internalTransform', () => {
     depth: Infinity,
     keepReferences: true,
     exclude: null,
+    layouts: null,
   };
 
   describe('collections', () => {
@@ -586,6 +587,177 @@ describe('internalTransform', () => {
       expect(result.cC).toBe(result.aA);
       expect(result.dD).toBe(result);
       expect(result.bB).toEqual([{ xX: 1 }, { yY: 2 }, new Set([{ zZ: 3 }])]);
+    });
+  });
+
+  describe('wide objects', () => {
+    // From 20 keys, the second result of a layout is copied once to make the layout fast
+    // (see learnLayout). Results are never replaced: these tests check that results and
+    // references stay the same, and which layouts are learned. dist-tests/fastObjects.mjs
+    // checks that the results are fast.
+
+    /** An object with `width` snake_case keys, `${tag}_name_0` and up */
+    const wide = (width: number, tag = 'field'): Record<string, unknown> => {
+      const object: Record<string, unknown> = {};
+      for (let i = 0; i < width; i++) object[`${tag}_name_${i}`] = i;
+      return object;
+    };
+    /** `wide(width, tag)` as camelCase */
+    const wideCamel = (
+      width: number,
+      tag = 'field',
+    ): Record<string, unknown> => {
+      const object: Record<string, unknown> = {};
+      for (let i = 0; i < width; i++) object[`${tag}Name${i}`] = i;
+      return object;
+    };
+    const fresh = (
+      overrides: Partial<TransformOptionsInternal> = {},
+    ): TransformOptionsInternal => ({
+      ...options,
+      layouts: null,
+      ...overrides,
+    });
+
+    it('should give the same result, in the same key order, from 20 keys to over 1,000', () => {
+      for (const width of [19, 20, 21, 30, 1000, 1001]) {
+        const result = internalTransform(
+          [wide(width), wide(width), wide(width)],
+          fresh(),
+        ) as object[];
+        for (const item of result) {
+          expect(item).toEqual(wideCamel(width));
+          expect(Object.keys(item)).toEqual(Object.keys(wideCamel(width)));
+          expect(Object.getPrototypeOf(item)).toBe(Object.prototype);
+        }
+      }
+      expect(
+        internalTransform(
+          [wide(30), wide(30), wide(30)],
+          fresh({ keepReferences: false }),
+        ),
+      ).toEqual([wideCamel(30), wideCamel(30), wideCamel(30)]);
+    });
+
+    it('should learn a layout from its second result, without replacing it', () => {
+      const run = fresh();
+      const result = internalTransform(
+        [wide(25), wide(25), wide(25)],
+        run,
+      ) as object[];
+
+      expect(run.layouts?.fastWidths).toEqual([25]);
+      expect(run.layouts?.fastKeys).toEqual(['fieldName24']);
+      expect(run.layouts?.fastObjects).toEqual([wideCamel(25)]);
+      for (const item of result)
+        expect(run.layouts?.fastObjects[0]).not.toBe(item);
+    });
+
+    it('should not learn layouts seen once, such as those of objects keyed by IDs', () => {
+      const run = fresh();
+      internalTransform(
+        { by_id: [wide(25, 'a'), wide(25, 'b'), wide(30, 'a'), wide(19, 'c')] },
+        run,
+      );
+      expect(run.layouts?.fastWidths).toEqual([]);
+      expect(run.layouts?.seenKeys).toEqual(['aName24', 'bName24', 'aName29']);
+    });
+
+    it('should count symbol keys, and learn layouts under exclude paths', () => {
+      const sym = Symbol('meta');
+      const withSymbol = (): Record<PropertyKey, unknown> => ({
+        ...wide(19),
+        [sym]: 1,
+      });
+      const run = fresh();
+      internalTransform([withSymbol(), withSymbol()], run);
+      expect(run.layouts?.fastWidths).toEqual([20]);
+
+      // Under exclude paths too: 18 keys and keep_me are 19, left alone; with a symbol, 20
+      const state = createExcludeState(['keep_me'], fresh());
+      if (!state) throw new Error('Expected a state');
+      const narrow = () => ({ ...wide(18, 'narrow'), keep_me: { as_is: 1 } });
+      const record = () => ({ ...wide(18), keep_me: { as_is: 1 }, [sym]: 1 });
+      const result = internalTransform(
+        [narrow(), narrow(), record(), record()],
+        state.options,
+        state.visitedRefs,
+      ) as Record<string, unknown>[];
+      expect(result[3].keep_me).toEqual({ asIs: 1 });
+      expect(state.options.layouts?.fastWidths).toEqual([20]);
+      expect(state.options.layouts?.fastKeys).toEqual(['keep_me']);
+    });
+
+    it('should keep index keys, __proto__ and symbol keys in a wide object', () => {
+      const sym = Symbol('meta');
+      const input: Record<PropertyKey, unknown> = { ...wide(25), 7: 'seven' };
+      Object.defineProperty(input, '__proto__', {
+        value: { proto_key: 1 },
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+      input[sym] = { meta_key: 1 };
+      const [, result] = internalTransform(
+        [input, input],
+        fresh({ keepReferences: false }),
+      ) as Record<PropertyKey, unknown>[];
+
+      expect(Object.keys(result)).toEqual([
+        '7',
+        ...Object.keys(wideCamel(25)),
+        '__proto__',
+      ]);
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect(
+        Object.getOwnPropertyDescriptor(result, '__proto__')?.value,
+      ).toEqual({ protoKey: 1 });
+      expect(result[sym]).toBe(input[sym]);
+    });
+
+    it('should keep references to results of a learned layout', () => {
+      const shared = wide(25);
+      const loop = () => {
+        const object = wide(24);
+        object.self_ref = object;
+        return object;
+      };
+      const run = fresh();
+      const result = internalTransform(
+        [wide(25), wide(25), shared, { ref: shared }, loop(), loop(), loop()],
+        run,
+      ) as Record<string, unknown>[];
+      expect(run.layouts?.fastKeys).toEqual(['fieldName24', 'selfRef']);
+      expect(result[3].ref).toBe(result[2]);
+      for (const item of result.slice(4)) expect(item.selfRef).toBe(item);
+
+      const state = createExcludeState(['keep_me'], fresh());
+      if (!state) throw new Error('Expected a state');
+      const excluded = internalTransform(
+        [wide(25), wide(25), shared, shared],
+        state.options,
+        state.visitedRefs,
+      ) as object[];
+      expect(state.options.layouts?.fastKeys).toEqual(['fieldName24']);
+      expect(excluded[3]).toBe(excluded[2]);
+    });
+
+    it('should keep shared and circular references to wide objects', () => {
+      const shared = wide(25);
+      const input = wide(25, 'outer');
+      input.self_ref = input;
+      input.list_items = [shared, { nested_ref: shared }, shared, input];
+      const result = internalTransform(input, fresh()) as Record<
+        string,
+        unknown
+      >;
+      const items = result.listItems as Record<string, unknown>[];
+
+      expect(result.selfRef).toBe(result);
+      expect(items[0]).toEqual(wideCamel(25));
+      expect(items[1].nestedRef).toBe(items[0]);
+      expect(items[2]).toBe(items[0]);
+      expect(items[3]).toBe(result);
     });
   });
 });
