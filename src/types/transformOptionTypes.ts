@@ -1,4 +1,4 @@
-import type { ExcludeState } from '../transform/excludePaths';
+import type { ExcludeState } from './excludeStateTypes';
 import type { LayoutMemory } from '../transform/learnLayout';
 import { PlainCase, StringCase } from './stringCaseTypes';
 

@@ -1,8 +1,11 @@
 import { runInNewContext } from 'node:vm';
-import { createExcludeState } from './excludePaths';
-import internalTransform, { NESTING_LIMIT_REACHED } from './internalTransform';
+import createExcludeState from './exclude/createExcludeState';
+import internalTransform from './internalTransform';
 import transformObjectKey from './transformObjectKey';
-import { UNTRACKED_NESTING_LIMIT } from '../constants/referenceTables';
+import {
+  NESTING_LIMIT_REACHED,
+  UNTRACKED_NESTING_LIMIT,
+} from '../constants/referenceTables';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 
 jest.mock('./transformObjectKey', () => {
