@@ -570,8 +570,8 @@ in the changelog.
 1. Fork the repository.
 2. Create a new branch (`feature/my-feature`).
 3. Commit your changes.
-4. Run `npm run check` (lint, formatting, types, tests with coverage, build and the
-   published types).
+4. Run `npm run check` (lint, formatting, types, tests with coverage, build, the
+   published types and the fast objects of the build).
 5. Submit a pull request.
 
 ---
