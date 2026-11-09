@@ -1,25 +1,37 @@
-import type * as ReferenceTables from './referenceTables';
+import type * as FindReference from './findReference';
+import type * as RecordReference from './recordReference';
+import { ReferenceTable } from '../types/referenceTableTypes';
+
+interface ReferenceFunctions {
+  findReference: typeof FindReference.default;
+  recordReference: typeof RecordReference.default;
+}
 
 /**
- * A fresh copy of the module (no table has filled up yet) whose tables hold at most
- * `limit` entries
+ * Fresh copies of `findReference` and `recordReference`, which share their state (no
+ * table has filled up yet), whose tables hold at most `limit` entries
  */
-function load(limit: number): typeof ReferenceTables {
-  let loaded: typeof ReferenceTables | undefined;
+function load(limit: number): ReferenceFunctions {
+  let loaded: ReferenceFunctions | undefined;
   jest.isolateModules(() => {
     jest.doMock('../constants/referenceTables', () => ({
       ...jest.requireActual('../constants/referenceTables'),
       REFERENCE_TABLE_LIMIT: limit,
     }));
-    loaded = jest.requireActual<typeof ReferenceTables>('./referenceTables');
+    loaded = {
+      findReference:
+        jest.requireActual<typeof FindReference>('./findReference').default,
+      recordReference:
+        jest.requireActual<typeof RecordReference>('./recordReference').default,
+    };
   });
-  return loaded as typeof ReferenceTables;
+  return loaded as ReferenceFunctions;
 }
 
-describe('referenceTables', () => {
+describe('findReference and recordReference', () => {
   it('should find the results recorded in a table', () => {
     const { findReference, recordReference } = load(10);
-    const tables: ReferenceTables.ReferenceTable[] = [new Map()];
+    const tables: ReferenceTable[] = [new Map()];
     const source = {};
     const result = {};
 
@@ -31,7 +43,7 @@ describe('referenceTables', () => {
 
   it('should chain a full table behind a new one, and find results in all of them', () => {
     const { findReference, recordReference } = load(2);
-    const tables: ReferenceTables.ReferenceTable[] = [new Map(), new Map()];
+    const tables: ReferenceTable[] = [new Map(), new Map()];
     const sources = Array.from({ length: 6 }, () => ({}));
     const results = sources.map(() => ({}));
     sources.forEach((source, i) =>

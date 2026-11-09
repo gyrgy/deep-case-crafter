@@ -1,7 +1,7 @@
 import { IsStringLiteral } from './helperTypes';
 
 /**
- * Type-level mirror of the `exclude` matching (`excludePaths.ts`).
+ * Type-level mirror of the `exclude` matching (`transform/exclude`).
  *
  * The paths that still match at a level are a union of strings: the rest of each
  * `exclude` path below the keys that lead there. `'users_by_id.*' | 'metadata.*'` at the

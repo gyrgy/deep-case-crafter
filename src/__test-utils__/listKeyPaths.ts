@@ -1,5 +1,4 @@
-/** The key that stands for the values of a Map, whatever their key */
-export const MAP_VALUES = '<values>';
+import collectKeyPaths from './collectKeyPaths';
 
 /**
  * Lists every key of a value, at every nesting level, as the path of keys that leads to
@@ -17,34 +16,6 @@ export const MAP_VALUES = '<values>';
  */
 export default function listKeyPaths(value: unknown): string[] {
   const paths = new Set<string>();
-  collect(value, [], paths, []);
+  collectKeyPaths(value, [], paths, []);
   return [...paths].sort();
-}
-
-function collect(
-  value: unknown,
-  segments: readonly string[],
-  paths: Set<string>,
-  ancestors: readonly unknown[],
-): void {
-  if (value === null || typeof value !== 'object') return;
-  if (ancestors.includes(value)) {
-    throw new Error(`Circular reference at ${JSON.stringify(segments)}`);
-  }
-  const inside = [...ancestors, value];
-
-  if (Array.isArray(value) || value instanceof Set) {
-    for (const item of value) collect(item, segments, paths, inside);
-  } else if (value instanceof Map) {
-    for (const [key, item] of value) {
-      if (typeof key === 'string')
-        paths.add(JSON.stringify([...segments, key]));
-      collect(item, [...segments, MAP_VALUES], paths, inside);
-    }
-  } else {
-    for (const [key, item] of Object.entries(value)) {
-      paths.add(JSON.stringify([...segments, key]));
-      collect(item, [...segments, key], paths, inside);
-    }
-  }
 }

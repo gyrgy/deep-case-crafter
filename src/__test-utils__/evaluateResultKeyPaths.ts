@@ -1,6 +1,6 @@
 import path from 'node:path';
 import ts from 'typescript';
-import { MAP_VALUES } from './listKeyPaths';
+import collectTypeKeyPaths from './collectTypeKeyPaths';
 
 /**
  * Asks the TypeScript compiler for the type of each expression, written with
@@ -51,7 +51,7 @@ export default function evaluateResultKeyPaths(
     .map((statement) => {
       const paths = new Set<string>();
       const [declaration] = statement.declarationList.declarations;
-      collect(
+      collectTypeKeyPaths(
         checker,
         checker.getTypeAtLocation(declaration.name),
         [],
@@ -60,70 +60,4 @@ export default function evaluateResultKeyPaths(
       );
       return [...paths].sort();
     });
-}
-
-function collect(
-  checker: ts.TypeChecker,
-  type: ts.Type,
-  segments: readonly string[],
-  paths: Set<string>,
-  depth: number,
-): void {
-  if (depth > 50) {
-    throw new Error(`Type too deep at ${JSON.stringify(segments)}`);
-  }
-  const next = depth + 1;
-
-  if (type.isUnion()) {
-    for (const member of type.types)
-      collect(checker, member, segments, paths, next);
-    return;
-  }
-  if (!(type.flags & ts.TypeFlags.Object)) {
-    // Primitives and literals have no keys; `unknown` and `never` are results to report
-    if (
-      type.flags &
-      (ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.Any)
-    ) {
-      paths.add(`<${checker.typeToString(type)}>`);
-    }
-    return;
-  }
-
-  if (checker.isArrayType(type) || checker.isTupleType(type)) {
-    for (const item of checker.getTypeArguments(type as ts.TypeReference)) {
-      collect(checker, item, segments, paths, next);
-    }
-    return;
-  }
-
-  const name = type.getSymbol()?.getName();
-  if (name === 'Map' || name === 'Set') {
-    const [first, second] = checker.getTypeArguments(type as ts.TypeReference);
-    if (name === 'Set') {
-      collect(checker, first, segments, paths, next);
-      return;
-    }
-    for (const key of first.isUnion() ? first.types : [first]) {
-      if (key.isStringLiteral()) {
-        paths.add(JSON.stringify([...segments, key.value]));
-      } else if (key.flags & ts.TypeFlags.String) {
-        paths.add(JSON.stringify([...segments, '<string>']));
-      }
-    }
-    collect(checker, second, [...segments, MAP_VALUES], paths, next);
-    return;
-  }
-
-  for (const property of checker.getPropertiesOfType(type)) {
-    const key = property.getName();
-    paths.add(JSON.stringify([...segments, key]));
-    collect(
-      checker,
-      checker.getTypeOfSymbol(property),
-      [...segments, key],
-      paths,
-      next,
-    );
-  }
 }

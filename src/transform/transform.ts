@@ -1,11 +1,10 @@
-import { createExcludeState } from './excludePaths';
-import internalTransform, { NESTING_LIMIT_REACHED } from './internalTransform';
+import runTransform from './runTransform';
+import { NESTING_LIMIT_REACHED } from '../constants/referenceTables';
 import { IsAny } from '../types/helperTypes';
 import { StringCase } from '../types/stringCaseTypes';
 import {
   NoUnknownOptions,
   TransformOptions,
-  TransformOptionsInternal,
 } from '../types/transformOptionTypes';
 import {
   HasAnyTargetCase,
@@ -134,7 +133,7 @@ function transform(data: unknown, options?: TransformOptions): unknown {
 
   if (!keepReferences) {
     try {
-      return run(
+      return runTransform(
         data,
         { targetCase, depth, keepReferences, exclude: null, layouts: null },
         exclude,
@@ -145,25 +144,11 @@ function transform(data: unknown, options?: TransformOptions): unknown {
       if (error !== NESTING_LIMIT_REACHED) throw error;
     }
   }
-  return run(
+  return runTransform(
     data,
     { targetCase, depth, keepReferences: true, exclude: null, layouts: null },
     exclude,
   );
-}
-
-/** Transforms `data` with the resolved options and the `exclude` option as passed */
-function run(
-  data: unknown,
-  internalOptions: TransformOptionsInternal,
-  exclude: unknown,
-): unknown {
-  const excludeState =
-    exclude === undefined ? null : createExcludeState(exclude, internalOptions);
-
-  return excludeState === null
-    ? internalTransform(data, internalOptions)
-    : internalTransform(data, excludeState.options, excludeState.visitedRefs);
 }
 
 export default transform;

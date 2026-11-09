@@ -1,37 +1,42 @@
 import { DICTIONARY_MODE_KEYS } from '../constants/fastObjects';
 import { OBJECT_TAG } from '../constants/objectTag';
-import { UNTRACKED_NESTING_LIMIT } from '../constants/referenceTables';
+import {
+  NESTING_LIMIT_REACHED,
+  UNTRACKED_NESTING_LIMIT,
+} from '../constants/referenceTables';
+import { ReferenceTable } from '../types/referenceTableTypes';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 import getObjectTag from '../utils/getObjectTag';
 import isMap from '../utils/isMap';
 import isSet from '../utils/isSet';
 import setKey from '../utils/setKey';
 import copySymbolProperties from './copySymbolProperties';
-import { ExcludeState, excludeStep, stepScope } from './excludePaths';
+import findReference from './findReference';
 import learnLayout from './learnLayout';
-import {
-  ReferenceTable,
-  findReference,
-  recordReference,
-} from './referenceTables';
-import transformCase from './transformCase';
+import recordReference from './recordReference';
+// Imported before the collection loops, which import this module back: the bundle then
+// declares the key cache constants before any function that reaches them, and the
+// minifier can write them into `transformObjectKey` as numbers
 import transformObjectKey from './transformObjectKey';
-
-/**
- * Thrown with `keepReferences: false` when the data nests `UNTRACKED_NESTING_LIMIT` levels
- * deep, which circular references always do unless `depth` stops them first: `transform`
- * then starts over with reference tables.
- *
- * @internal This value is for internal use by the library
- */
-export const NESTING_LIMIT_REACHED = { reason: 'nesting limit reached' };
+import transformEntries from './transformEntries';
+import transformExcludedEntries from './transformExcludedEntries';
+import transformExcludedProperties from './transformExcludedProperties';
+import transformItems from './transformItems';
+import transformMembers from './transformMembers';
 
 /**
  * Recursively transforms data structures (objects, arrays, Maps, Sets) by changing their keys/property names
  *
- * Plain objects are transformed here (one stack frame per nesting level); arrays, Maps
- * and Sets go through small helper loops that call back into this function directly (two
- * frames per level). No callbacks or closures are created per node.
+ * Plain objects, the most common node, are transformed here (one stack frame per nesting
+ * level). Arrays, Maps and Sets go through small helper loops that call back into this
+ * function directly (two small frames per level): `transformItems`, `transformEntries`
+ * and `transformMembers`. The loops are separate functions, not closures, so that no
+ * function is created per node and this function's stack frame stays small: with them
+ * inlined, a first call converts nested objects about a quarter less deep (1,800 instead
+ * of 2,400 levels on Node 24), though nested arrays deeper. With `exclude`, objects and
+ * Maps where a path still matches go through `transformExcludedProperties` and
+ * `transformExcludedEntries`; arrays and Sets add no key to a path, so their items stay in
+ * the scope of their collection.
  *
  * @param data - The data to transform (object, array, Map, Set)
  * @param options - Transformation options
@@ -177,133 +182,4 @@ export default function internalTransform(
   // Date, RegExp, Error, URL, typed arrays and other built-ins keep their state
   // in internal slots, not in keys: return them untouched.
   return data;
-}
-
-// The collection loops are separate functions, not closures, and call internalTransform
-// directly: plain objects, the most common node, are transformed inside internalTransform,
-// which keeps its stack frame small, and a nested collection takes two small frames.
-
-function transformItems(
-  source: readonly unknown[],
-  result: unknown[],
-  options: TransformOptionsInternal,
-  visitedRefs: ReferenceTable[],
-  depth: number,
-  nesting: number,
-): void {
-  // Read through the array's iterator, as `for...of` does elsewhere. An indexed read here
-  // would see every array of the data, and V8 then stores the input's arrays of
-  // non-integer numbers as boxed values, more than doubling their memory. Items that are
-  // not objects are copied without a call, by a `push` of their own: one `push` of either
-  // kind of value makes arrays of numbers and strings about 1.4 times slower once the
-  // loop has seen both kinds.
-  for (const item of source) {
-    if (typeof item !== 'object' || item === null) {
-      result.push(item);
-      continue;
-    }
-    result.push(
-      internalTransform(item, options, visitedRefs, depth, nesting + 1),
-    );
-  }
-}
-
-function transformEntries(
-  source: ReadonlyMap<unknown, unknown>,
-  result: Map<unknown, unknown>,
-  options: TransformOptionsInternal,
-  visitedRefs: ReferenceTable[],
-  depth: number,
-  nesting: number,
-): void {
-  for (const [key, value] of source) {
-    // Only string keys have a case. They are converted without the key cache: a Map key
-    // can be a slice of a much larger string, which a cache entry would keep alive.
-    result.set(
-      typeof key === 'string' ? transformCase(key, options.targetCase) : key,
-      internalTransform(value, options, visitedRefs, depth, nesting + 1),
-    );
-  }
-}
-
-function transformMembers(
-  source: ReadonlySet<unknown>,
-  result: Set<unknown>,
-  options: TransformOptionsInternal,
-  visitedRefs: ReferenceTable[],
-  depth: number,
-  nesting: number,
-): void {
-  for (const value of source) {
-    result.add(
-      internalTransform(value, options, visitedRefs, depth, nesting + 1),
-    );
-  }
-}
-
-// With `exclude`, objects and Maps where a path still matches go through these loops
-// instead: each key keeps its name where a path ends at it, and its value is transformed
-// in the scope of the paths that continue below it. Arrays and Sets add no key to a path,
-// so their items stay in the scope of their collection.
-
-function transformExcludedProperties(
-  source: Record<PropertyKey, unknown>,
-  result: Record<PropertyKey, unknown>,
-  state: ExcludeState,
-  depth: number,
-  nesting: number,
-): void {
-  let width = 0;
-  let resultKey = '';
-  for (const key in source) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
-      const step = excludeStep(state, key);
-      const scope = stepScope(state, step);
-      resultKey = step.keepKey
-        ? key
-        : transformObjectKey(key, state.options.targetCase);
-      width++;
-      setKey(
-        result,
-        resultKey,
-        internalTransform(
-          source[key],
-          scope.options,
-          scope.visitedRefs,
-          depth,
-          nesting + 1,
-        ),
-      );
-    }
-  }
-
-  width += copySymbolProperties(source, result);
-  if (width >= DICTIONARY_MODE_KEYS) {
-    learnLayout(state.options, result, width, resultKey);
-  }
-}
-
-function transformExcludedEntries(
-  source: ReadonlyMap<unknown, unknown>,
-  result: Map<unknown, unknown>,
-  state: ExcludeState,
-  depth: number,
-  nesting: number,
-): void {
-  for (const [key, value] of source) {
-    const step = excludeStep(state, key);
-    const scope = stepScope(state, step);
-    result.set(
-      typeof key === 'string' && !step.keepKey
-        ? transformCase(key, state.options.targetCase)
-        : key,
-      internalTransform(
-        value,
-        scope.options,
-        scope.visitedRefs,
-        depth,
-        nesting + 1,
-      ),
-    );
-  }
 }

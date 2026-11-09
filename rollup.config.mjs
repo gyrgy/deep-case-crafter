@@ -16,6 +16,20 @@ export default [
   // JavaScript bundles (CJS + ESM)
   {
     input: 'src/index.ts',
+    // The collection loops call internalTransform, which calls them. That cycle is
+    // safe: the modules only declare functions, and none runs before `transform` is
+    // called. A cycle through any other module is still reported.
+    onwarn(warning, warn) {
+      const loopCycle =
+        /[\\/]src[\\/]transform[\\/](internalTransform|transform(Items|Entries|Members|ExcludedProperties|ExcludedEntries))\.ts$/;
+      if (
+        warning.code === 'CIRCULAR_DEPENDENCY' &&
+        warning.ids?.every((id) => loopCycle.test(id))
+      ) {
+        return;
+      }
+      warn(warning);
+    },
     output: [
       {
         file: packageJson.main,
