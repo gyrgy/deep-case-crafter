@@ -565,6 +565,40 @@ export type TransformResultFor<T, Options> =
       : never;
 
 /**
+ * Each member of a union of options objects with the target case `To`, which
+ * `transformTo` takes as an argument of its own: a member with `targetCase: undefined`
+ * keeps its result, which an intersection with `{ targetCase: To }` would drop as `never`.
+ */
+type WithTargetCase<Options, To> = Options extends unknown
+  ? Omit<Options, 'targetCase'> & { targetCase: To }
+  : never;
+
+/**
+ * The function `transformTo` returns. It transforms the keys of its argument to `To`
+ * (`'camel'` for `undefined`) with the `Options` passed to `transformTo`, and its result
+ * type is the one `transform` gives for the same options.
+ *
+ * It has a single call signature, generic in the data, so TypeScript can infer the data
+ * where it is passed by name, as in `.then(transformTo('camel'))`. Declaration files of
+ * code that stores one refer to it by name.
+ *
+ * A function for one target case can be passed where a `TransformTo<StringCase>` is
+ * expected, or a `<T>(data: T) => unknown`.
+ */
+export interface TransformTo<
+  To extends StringCase | undefined,
+  // Not `Record<never, never>`: declaration files and hovers write the default out
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  Options = {},
+> {
+  /**
+   * Transforms the keys of `data`, as `transform` does with the target case and options
+   * passed to `transformTo`. Only the first argument is used, so callbacks can pass more.
+   */
+  <T>(data: T): TransformResultFor<T, WithTargetCase<Options, To>>;
+}
+
+/**
  * The key type `transformKey` returns for an options object. Each member of a union of
  * options objects gives its own key, and an optional `targetCase` may also be omitted,
  * which gives the camelCase key (see `TransformResultForOne`). Options typed `any`, or a

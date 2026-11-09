@@ -26,3 +26,9 @@ export type _key = Expect<Equal<typeof _keyValue, 'user-id'>>;
 export type _keyNamed = Expect<
   Equal<dcc.TransformKey<'user_id', 'pascal'>, 'UserId'>
 >;
+
+const _toValue = [{ user_id: 1 }].map(dcc.transformTo('pascal'));
+export type _to = Expect<Equal<typeof _toValue, { UserId: number }[]>>;
+
+export const toKebab: dcc.TransformTo<'kebab'> = dcc.transformTo('kebab');
+export const toOptions: dcc.TransformToOptions = { depth: 1 };

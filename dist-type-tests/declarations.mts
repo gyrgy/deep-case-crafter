@@ -8,6 +8,7 @@
 import {
   transform,
   transformKey,
+  transformTo,
   type StringCase,
   type TransformKeyOptions,
   type TransformOptions,
@@ -91,3 +92,18 @@ export function sortParam<C extends StringCase>(
 ) {
   return transformKey(field, { targetCase });
 }
+
+// Functions made by transformTo: their declarations refer to TransformTo by name
+export const snakeAll = transformTo('snake');
+
+export const camelKeepingMetadata = transformTo('camel', {
+  exclude: ['metadata.*'],
+  depth: 3,
+});
+
+export function converterIn<C extends StringCase>(targetCase: C) {
+  return transformTo(targetCase);
+}
+
+export const snakeRows = <R,>(rows: readonly R[]) =>
+  rows.map(transformTo('snake'));

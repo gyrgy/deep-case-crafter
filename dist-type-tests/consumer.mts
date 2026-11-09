@@ -5,9 +5,13 @@
  * Run with `npm run test:dist-types` after `npm run build`.
  */
 import {
+  camelKeepingMetadata,
+  converterIn,
   createdByIdIn,
   dataIn,
   keyToCase,
+  snakeAll,
+  snakeRows,
   sortParam,
   toKebabKeys,
   toSnakeKey,
@@ -58,4 +62,39 @@ export type _dataIn = Expect<
 const _toKebabKeysValue = toKebabKeys(['userId', 'HTTPResponse'] as const);
 export type _toKebabKeys = Expect<
   Equal<typeof _toKebabKeysValue, ('user-id' | 'http-response')[]>
+>;
+
+const _snakeAllValue = snakeAll({ userId: 1, userInfo: { firstName: 'a' } });
+export type _snakeAll = Expect<
+  Equal<
+    typeof _snakeAllValue,
+    { user_id: number; user_info: { first_name: string } }
+  >
+>;
+
+const _camelKeepingMetadataValue = camelKeepingMetadata({
+  user_id: 1,
+  metadata: { order_ref: 'A1' },
+  a_b: { c_d: { e_f: { g_h: 1 } } },
+});
+export type _camelKeepingMetadata = Expect<
+  Equal<
+    typeof _camelKeepingMetadataValue,
+    {
+      userId: number;
+      metadata: { order_ref: string };
+      aB: { cD: { eF: { g_h: number } } };
+    }
+  >
+>;
+
+// A target case passed through a generic parameter: cases added later are typed as well
+const _converterInValue = converterIn('constant')({ user_id: 1 });
+export type _converterIn = Expect<
+  Equal<typeof _converterInValue, { USER_ID: number }>
+>;
+
+const _snakeRowsValue = snakeRows([{ userId: 1 }]);
+export type _snakeRows = Expect<
+  Equal<typeof _snakeRowsValue, { user_id: number }[]>
 >;

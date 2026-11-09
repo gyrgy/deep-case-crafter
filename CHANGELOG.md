@@ -4,6 +4,21 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `transformTo(targetCase, options)` makes a function that transforms the keys of its
+  argument as `transform(data, { targetCase, ...options })` does, with the same result
+  type. The function it makes uses only its first argument, so it can be passed by name
+  as a callback, and its result type stays exact there:
+  `fetchUser().then(transformTo('camel'))`, `items.map(transformTo('snake'))`. Passed by
+  name, `transform` itself gets an `unknown` result type, and `map` passes it the index
+  as its options. The options are checked and read once, when the function is made.
+- The types `TransformTo<TargetCase, Options>`, of such a function, and
+  `TransformToOptions`, of its options (`depth`, `exclude` and `keepReferences`), which
+  `TransformOptions` now extends.
+
 ## [3.6.0] - 2026-11-08
 
 ### Changed
@@ -442,6 +457,8 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[Unreleased]: https://github.com/gyrgy/deep-case-crafter/compare/v3.6.0...HEAD
+[3.6.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.6.0
 [3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0
 [3.4.1]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.1
 [3.4.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.0

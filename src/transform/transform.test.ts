@@ -1,5 +1,6 @@
 import { runInNewContext } from 'node:vm';
 import transform from './transform';
+import { TransformOptions } from '../types/transformOptionTypes';
 
 describe('transform (recursive)', () => {
   it('should transform a simple object', () => {
@@ -359,6 +360,20 @@ describe('transform (recursive)', () => {
         ),
       );
     }
+  });
+
+  it('should check the options in order, and report the first problem', () => {
+    const data = { user_id: 1 };
+    const any = (options: unknown) => options as TransformOptions;
+    expect(() =>
+      transform(data, any({ targetCase: 'SNAKE', depth: '2' })),
+    ).toThrow('Unsupported targetCase "SNAKE".');
+    expect(() =>
+      transform(data, any({ depth: '2', keepReferences: 'no' })),
+    ).toThrow('Unsupported depth "2".');
+    expect(() =>
+      transform(data, any({ keepReferences: 'no', exclude: 'x' })),
+    ).toThrow('Unsupported keepReferences "no".');
   });
 
   it('should treat a null depth like an omitted one', () => {
@@ -729,15 +744,36 @@ describe('transform (recursive)', () => {
       }
     });
 
-    it('should not swallow other errors with keepReferences: false', () => {
-      const data = {
-        get bad_key(): number {
-          throw new Error('getter failed');
-        },
+    it('should not swallow other errors, nor start over for them', () => {
+      for (const keepReferences of [true, false]) {
+        let reads = 0;
+        const data = {
+          get flaky_value(): number {
+            reads++;
+            if (reads === 1) throw new Error('first read failed');
+            return 1;
+          },
+        };
+        expect(() => transform(data, { keepReferences })).toThrow(
+          'first read failed',
+        );
+        expect(reads).toBe(1);
+      }
+    });
+
+    it('should start over with exclude paths, which apply again', () => {
+      const node: Record<string, unknown> = {
+        node_id: 1,
+        meta_data: { keep_me: 1 },
       };
-      expect(() => transform(data, { keepReferences: false })).toThrow(
-        'getter failed',
-      );
+      node.self_ref = node;
+      const options = { exclude: ['meta_data.*'] };
+      const result = transform(node, {
+        ...options,
+        keepReferences: false,
+      }) as Record<string, unknown>;
+      expect(result).toEqual(transform(node, options));
+      expect(result.metaData).toEqual({ keep_me: 1 });
     });
   });
 });

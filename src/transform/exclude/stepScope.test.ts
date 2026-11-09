@@ -2,6 +2,7 @@ import { TransformScope } from '../../types/excludeStateTypes';
 import { TransformOptionsInternal } from '../../types/transformOptionTypes';
 import createExcludeState from './createExcludeState';
 import excludeStep from './excludeStep';
+import sortedPaths from './sortedPaths';
 import stepScope from './stepScope';
 
 describe('stepScope', () => {
@@ -14,11 +15,8 @@ describe('stepScope', () => {
   };
 
   /** The state for `paths`, which are expected to be valid and not empty */
-  const stateOf = (paths: string[]) => {
-    const state = createExcludeState(paths, options);
-    if (!state) throw new Error('Expected a state');
-    return state;
-  };
+  const stateOf = (paths: string[]) =>
+    createExcludeState(sortedPaths(paths), options);
 
   /** The state a scope transforms its values with, which is expected to exist */
   const stateIn = (scope: TransformScope) => {

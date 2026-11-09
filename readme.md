@@ -35,7 +35,7 @@ const body = transform(user, { targetCase: 'snake' });
 | Some keys left as they are               | `transform(data, { exclude: ['users_by_id.*'] })`                  |
 | The top level only                       | `transform(data, { depth: 1 })`                                    |
 | Faster conversion of `JSON.parse` output | `transform(data, { keepReferences: false })`                       |
-| `transform` as a callback                | `rows.map((row) => transform(row))`                                |
+| A callback, or options set once          | `.then(transformTo('camel'))`                                      |
 | The result type, or a key's type         | `TransformResult<typeof data, 'snake'>`, `TransformKey<'user_id'>` |
 
 ## Features
@@ -55,6 +55,9 @@ const body = transform(user, { targetCase: 'snake' });
   returned untouched.
 - **Keys that are data keep their names**: UUIDs always, and any other key whose path
   you list in [`exclude`](#leaving-keys-unchanged), such as `'users_by_id.*'`.
+- **Callbacks keep their types**: [`transformTo`](#transformtotargetcase-options) makes a
+  function with its options set once, which keeps the exact result type where it is
+  passed by name: `.then(transformTo('camel'))`, `items.map(transformTo('snake'))`.
 - **Single keys too**: [`transformKey`](#transformkeykey-options) converts one key by
   the same rules, `transformKey('userID', { targetCase: 'snake' })` → `'user_id'`, typed
   `'user_id'`.
@@ -200,6 +203,28 @@ function toSortParam(field: SortField) {
   //     ^? 'created_at' | 'user_id'
 }
 ```
+
+---
+
+### 8. Set the options once with `transformTo`
+
+```typescript
+import { transformTo } from 'deep-case-crafter';
+
+const toCamel = transformTo('camel');
+const toPayload = transformTo('snake', { exclude: ['metadata.*'] });
+
+const users = await fetch('/api/users')
+  .then((response) => response.json() as Promise<{ user_id: number }[]>)
+  .then(toCamel);
+//    ^? { userId: number }[]
+
+const body = toPayload({ userId: 1, metadata: { orderRef: 'A1' } });
+//    ^? { user_id: number; metadata: { orderRef: string } }
+```
+
+Passed by name, `transform` itself gets an `unknown` result type (see
+[Passing `transform` as a callback](#passing-transform-as-a-callback)).
 
 ---
 
@@ -367,12 +392,13 @@ known as `string[]` give an `unknown` result type.
 
 ### Passing `transform` as a callback
 
-Wrap it in a function: `.then((data) => transform(data))`,
-`rows.map((row) => transform(row))`. Passed by name, `transform` gets an `unknown` result
-type, because TypeScript then uses its last overload, `transform<Input, Output>`, whose
-output it cannot infer, and `map` would pass each row's index as the options. A callback
-that passes a string, such as the key in lodash's `mapValues(object, transform)`, makes it
-throw a `TypeError`.
+Use [`transformTo`](#transformtotargetcase-options): `.then(transformTo('camel'))`,
+`items.map(transformTo('snake'))`. Passed by name, `transform` itself gets an `unknown`
+result type, because TypeScript then uses its last overload, `transform<Input, Output>`,
+whose output it cannot infer, and `map` would pass each row's index as the options.
+Wrapping it in a function works as well: `rows.map((row) => transform(row))`. A callback
+that passes a string, such as the key in lodash's `mapValues(object, transform)`, makes
+`transform` throw a `TypeError`.
 
 ### Result types
 
@@ -394,8 +420,9 @@ type of the `exclude` paths, such as `['metadata.*']`.
   (without `sourceCase`), and options passed with only the input type given
   (`transform<Data>(data, options)`). Leave the type arguments out to get the precise
   type.
-- When a library exports a value or function built on `transform` or `transformKey`,
-  annotate its result with `TransformResult<...>` or `TransformKey<...>`. Otherwise the
+- When a library exports a value or function built on `transform`, `transformKey` or a
+  function made by `transformTo`, annotate its result with `TransformResult<...>` or
+  `TransformKey<...>`. Otherwise the
   result type is written out into its declaration files. For data of a fixed type,
   recursive types (trees, JSON values) are then cut off as `any`, and very large types or
   symbol-keyed members fail to compile (TS7056, TS4118). For a target case typed
@@ -403,7 +430,8 @@ type of the `exclude` paths, such as `['metadata.*']`.
   when the library was built, not cases added later. A generic target case, as in
   `<C extends StringCase>(targetCase: C)`, is not affected. Leave its result type
   inferred: `TransformResult<T, C>` and `TransformKey<K, C>` do not match it, and its
-  declarations refer to the types by name.
+  declarations refer to the types by name. A function made by `transformTo` itself needs
+  no annotation: it is declared as `TransformTo<...>`.
 - Some values cannot be told apart by their types. `Error`, `URL`, boxed primitives,
   iterators, module namespace objects and other built-ins whose types do not declare a
   `Symbol.toStringTag` are returned untouched, but typed as plain objects with
@@ -413,6 +441,42 @@ type of the `exclude` paths, such as `['metadata.*']`.
   Map or Set) is typed as a transformed `Map` or `Set`, but at runtime it is returned
   untouched when it has a `Symbol.toStringTag` (as every class implementing `Map` or
   `Set` does), and rebuilt as a plain object otherwise.
+
+### `transformTo(targetCase, options)`
+
+Makes a function that transforms the keys of its argument as
+`transform(data, { targetCase, ...options })` does, typed as `transform` types that call.
+
+- **targetCase**: as for `transform` (`undefined` means `'camel'`).
+- **options** (optional): `depth`, `exclude` and `keepReferences`, as for `transform`.
+  The target case is the first argument: `transformTo('snake', { targetCase: 'kebab' })`
+  does not compile and throws a `TypeError`.
+
+```typescript
+const toShallowSnake = transformTo('snake', { depth: 1 });
+
+toShallowSnake({ userId: 1, userInfo: { firstName: 'Ann' } });
+// { user_id: 1, user_info: { firstName: 'Ann' } }
+```
+
+- The function uses only its first argument, so it can be passed to callbacks that pass
+  more, such as `map` (the index) or lodash's `mapValues` (the key).
+- The options are checked when the function is made, where invalid ones throw a
+  `TypeError`, and read only then: changing the options object or the `exclude` array
+  afterwards does not change the function.
+- Each call converts its data on its own, as a call to `transform` does: shared and
+  circular references are kept within a call. Pass an array of records in one call,
+  `toCamel(rows)`, rather than one record per call, `rows.map(toCamel)`: a call makes
+  fast objects of the results of 20 to 200 keys whose layout repeats in it (see
+  [3.6.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#360---2026-11-08)).
+  Made one per call, such results stay in dictionary mode: they take 4 to 7 times the
+  memory, are slower to read by property name, and records of 30 keys took half again
+  as long to convert.
+- Strings are returned as they are, as `transform` returns them. To convert keys, use
+  [`transformKey`](#transformkeykey-options):
+  `keys.map((key) => transformKey(key, { targetCase: 'snake' }))`.
+- Its type is `TransformTo<TargetCase, Options>`, and the type of its options
+  `TransformToOptions`.
 
 ### `transformKey(key, options)`
 
@@ -551,8 +615,8 @@ deep-case-crafter follows [semantic versioning](https://semver.org). The v3 API 
 stable. Key outputs change only to fix bugs, and every change is listed in the
 [changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md): if you
 store converted keys, such as database columns, check it before upgrading. A minor
-version can add an option, which `Required<TransformOptions>` and
-`Required<TransformKeyOptions>` then require, or a target case, which code that handles
+version can add an option, which `Required<TransformOptions>`,
+`Required<TransformToOptions>` and `Required<TransformKeyOptions>` then require, or a target case, which code that handles
 every member of `StringCase` then has to handle too. It can also reject at compile time
 options that the runtime ignores or rejects, as 3.5.0 did for a string or a number in
 place of the options object.
