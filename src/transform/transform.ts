@@ -1,5 +1,5 @@
 import runTransform from './runTransform';
-import { NESTING_LIMIT_REACHED } from '../constants/referenceTables';
+import resolveExclude from './exclude/resolveExclude';
 import { IsAny } from '../types/helperTypes';
 import { StringCase } from '../types/stringCaseTypes';
 import {
@@ -11,8 +11,9 @@ import {
   TransformResult,
   TransformResultFor,
 } from '../types/transformTypes';
-import describeValue from '../utils/describeValue';
 import rejectStringOptions from '../utils/rejectStringOptions';
+import resolveDepth from '../utils/resolveDepth';
+import resolveKeepReferences from '../utils/resolveKeepReferences';
 import resolveTargetCase from '../utils/resolveTargetCase';
 
 /**
@@ -112,42 +113,13 @@ function transform<T, K>(
 // Implementation
 function transform(data: unknown, options?: TransformOptions): unknown {
   rejectStringOptions(options);
-  const targetCaseOption = options?.targetCase;
-  const depth = options?.depth ?? Infinity;
-
   // Plain JavaScript callers can pass anything; reject it before any key is converted
-  const targetCase = resolveTargetCase(targetCaseOption);
-  if (typeof depth !== 'number' || Number.isNaN(depth)) {
-    throw new TypeError(
-      `Unsupported depth ${describeValue(depth)}. Use a number, or omit depth to transform every level.`,
-    );
-  }
-
-  const exclude = options?.exclude;
-  const keepReferences = options?.keepReferences ?? true;
-  if (typeof keepReferences !== 'boolean') {
-    throw new TypeError(
-      `Unsupported keepReferences ${describeValue(keepReferences)}. Use true or false.`,
-    );
-  }
-
-  if (!keepReferences) {
-    try {
-      return runTransform(
-        data,
-        { targetCase, depth, keepReferences, exclude: null, layouts: null },
-        exclude,
-      );
-    } catch (error) {
-      // Nested too deep to go on without reference tables, as circular references are:
-      // start over with them
-      if (error !== NESTING_LIMIT_REACHED) throw error;
-    }
-  }
   return runTransform(
     data,
-    { targetCase, depth, keepReferences: true, exclude: null, layouts: null },
-    exclude,
+    resolveTargetCase(options?.targetCase),
+    resolveDepth(options?.depth),
+    resolveKeepReferences(options?.keepReferences),
+    resolveExclude(options?.exclude),
   );
 }
 

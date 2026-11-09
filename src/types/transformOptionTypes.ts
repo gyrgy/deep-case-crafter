@@ -15,9 +15,10 @@ export interface TransformKeyOptions {
 }
 
 /**
- * Options for the transform function
+ * Options for the transformTo function, which takes the target case as an argument of
+ * its own. The transform function takes them as well.
  */
-export interface TransformOptions extends TransformKeyOptions {
+export interface TransformToOptions {
   /**
    * How many nesting levels to transform: `1` transforms only the top-level keys, `2`
    * also the keys one level down, and so on. The values of objects, Maps and Sets are one
@@ -65,7 +66,13 @@ export interface TransformOptions extends TransformKeyOptions {
    * @default true
    */
   keepReferences?: boolean | undefined;
+}
 
+/**
+ * Options for the transform function
+ */
+export interface TransformOptions
+  extends TransformKeyOptions, TransformToOptions {
   /**
    * @deprecated Has no effect. Every key's case is detected from the key itself, both at
    * runtime and in the result type, so there is nothing to declare.
@@ -74,8 +81,9 @@ export interface TransformOptions extends TransformKeyOptions {
 }
 
 /**
- * Internal options for transformation (used within the package).
- * They are resolved by `transform` before the recursion starts.
+ * Internal options for transformation (used within the package). `runTransform` creates
+ * them for each call from the options that `transform`, or `transformTo` when it makes its
+ * function, has resolved.
  */
 export interface TransformOptionsInternal {
   /** The target casing format to transform to */

@@ -1,5 +1,6 @@
 import { runInNewContext } from 'node:vm';
 import createExcludeState from './exclude/createExcludeState';
+import sortedPaths from './exclude/sortedPaths';
 import internalTransform from './internalTransform';
 import transformObjectKey from './transformObjectKey';
 import {
@@ -394,8 +395,10 @@ describe('internalTransform', () => {
       paths: string[],
       overrides: Partial<TransformOptionsInternal> = {},
     ) => {
-      const state = createExcludeState(paths, { ...options, ...overrides });
-      if (!state) throw new Error('Expected a state');
+      const state = createExcludeState(sortedPaths(paths), {
+        ...options,
+        ...overrides,
+      });
       return internalTransform(data, state.options, state.visitedRefs);
     };
 
@@ -678,7 +681,6 @@ describe('internalTransform', () => {
 
       // Under exclude paths too: 18 keys and keep_me are 19, left alone; with a symbol, 20
       const state = createExcludeState(['keep_me'], fresh());
-      if (!state) throw new Error('Expected a state');
       const narrow = () => ({ ...wide(18, 'narrow'), keep_me: { as_is: 1 } });
       const record = () => ({ ...wide(18), keep_me: { as_is: 1 }, [sym]: 1 });
       const result = internalTransform(
@@ -735,7 +737,6 @@ describe('internalTransform', () => {
       for (const item of result.slice(4)) expect(item.selfRef).toBe(item);
 
       const state = createExcludeState(['keep_me'], fresh());
-      if (!state) throw new Error('Expected a state');
       const excluded = internalTransform(
         [wide(25), wide(25), shared, shared],
         state.options,

@@ -4,8 +4,8 @@ import describeValue from './describeValue';
 import isStringCase from './isStringCase';
 
 /**
- * Resolves the `targetCase` option of `transform` and `transformKey`: `'camel'` when it
- * is omitted or falsy. Plain JavaScript callers can pass anything, so any other value
+ * Resolves the target case of `transform`, `transformTo` and `transformKey`: `'camel'`
+ * when it is omitted or falsy. Plain JavaScript callers can pass anything, so any other value
  * that is not a supported case is rejected before a key is converted.
  *
  * @param targetCase - The `targetCase` option, as passed

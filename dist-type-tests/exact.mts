@@ -4,7 +4,7 @@
  * its type includes it. The declarations themselves are checked as well.
  * Run with `npm run test:dist-types` after `npm run build`.
  */
-import { transform, transformKey } from 'deep-case-crafter';
+import { transform, transformKey, transformTo } from 'deep-case-crafter';
 import type { Equal, Expect } from './typeAssertions.js';
 
 const input = { user_id: 1, user_info: { first_name: 'x' } };
@@ -52,3 +52,14 @@ export type _keyMaybe = Expect<
 // keepReferences set to undefined is the same as omitted
 const _keepUndefinedValue = transform(input, { keepReferences: undefined });
 export type _keepUndefined = Expect<Equal<typeof _keepUndefinedValue, Camel>>;
+
+// transformTo accepts options set to undefined as well, as omitted ones
+const _toValue = transformTo('camel', { exclude: ['user_info.*'] })(input);
+export type _to = Expect<Equal<typeof _toValue, UserInfoKept>>;
+
+const _toUndefinedValue = transformTo('camel', {
+  depth: undefined,
+  exclude: undefined,
+  keepReferences: undefined,
+})(input);
+export type _toUndefined = Expect<Equal<typeof _toUndefinedValue, Camel>>;

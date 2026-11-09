@@ -47,7 +47,7 @@ const check = (build, name, condition) => {
   if (!condition) failed.push(`${build}: ${name}`);
 };
 
-for (const [name, { transform }] of [
+for (const [name, { transform, transformTo }] of [
   ['es', esm],
   ['cjs', cjs],
 ]) {
@@ -105,6 +105,33 @@ for (const [name, { transform }] of [
     build,
     'results under exclude paths are fast',
     fastFromThird(excluded) && excluded[3].raw_data.asIs === 1,
+  );
+
+  // A function made by transformTo converts as transform does: kebab-case gives the
+  // results keys of their own
+  check(
+    build,
+    'results of a function made by transformTo are fast from the third one',
+    fastFromThird(
+      transformTo('kebab', { keepReferences: false })(
+        records(tag('converter'), 25),
+      ),
+    ),
+  );
+
+  // Each call learns on its own: a call that stops learning, with results of the same
+  // number of keys and last key but other keys, leaves the next call learning
+  const toKebab = transformTo('kebab');
+  toKebab(
+    Array.from({ length: 2 }, (_, i) => ({
+      ...wide(tag(`stopFirst${i}`), 23),
+      [`${tag('stopFirst')}_last`]: 1,
+    })),
+  );
+  check(
+    build,
+    'a function made by transformTo learns layouts again on every call',
+    fastFromThird(toKebab(records(tag('secondCall'), 25))),
   );
 
   const sym = Symbol('meta');

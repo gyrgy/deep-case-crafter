@@ -6,11 +6,14 @@
 import {
   transform,
   transformKey,
+  transformTo,
   type StringCase,
   type TransformKey,
   type TransformKeyOptions,
   type TransformOptions,
   type TransformResult,
+  type TransformTo,
+  type TransformToOptions,
 } from 'deep-case-crafter';
 import type { Equal, Expect } from './typeAssertions.js';
 
@@ -149,3 +152,54 @@ export function withDepth<T>(data: T): TransformResult<T, 'kebab', 3> {
 
 // @ts-expect-error the target case goes in an options object: { targetCase: 'snake' }
 transform({ user_id: 1 }, 'snake');
+
+// transformTo: a function with fixed options that keeps its types where it is passed by
+// name, as a callback
+const _mappedValue = [{ user_id: 1, created_at: new Date() }].map(
+  transformTo('kebab'),
+);
+export type _mapped = Expect<
+  Equal<typeof _mappedValue, { 'user-id': number; 'created-at': Date }[]>
+>;
+
+const _thenValue = Promise.resolve({ user_info: { first_name: 'x' } }).then(
+  transformTo('camel', { depth: 1, exclude: ['user_info.*'] }),
+);
+export type _then = Expect<
+  Equal<typeof _thenValue, Promise<{ userInfo: { first_name: string } }>>
+>;
+
+export const toPascal: TransformTo<'pascal'> = transformTo('pascal');
+export const converterOptions: TransformToOptions = {
+  depth: 2,
+  exclude: ['metadata.*'],
+  keepReferences: false,
+};
+
+// A member of a union of options whose targetCase is undefined keeps its result
+declare const someOptions:
+  | { depth: 1 }
+  | { targetCase: undefined; exclude: ['user_info.*'] };
+const _someOptionsValue = transformTo(
+  'camel',
+  someOptions,
+)({
+  user_info: { first_name: 'x' },
+});
+export type _someOptions = Expect<
+  Equal<
+    typeof _someOptionsValue,
+    { userInfo: { first_name: string } } | { userInfo: { first_name: string } }
+  >
+>;
+
+// A function for one target case is a TransformTo<StringCase> as well
+export const anyCase: TransformTo<StringCase> = toPascal;
+
+// @ts-expect-error the target case is the first argument: transformTo('snake')
+transformTo('camel', { targetCase: 'snake' });
+declare const presets: { depth: 1 } | { targetCase: 'snake' };
+// @ts-expect-error also in a member of a union
+transformTo('camel', presets);
+// @ts-expect-error the paths go in an options object: { exclude: [...] }
+transformTo('camel', ['metadata.*']);

@@ -1,6 +1,7 @@
 import { TransformOptionsInternal } from '../../types/transformOptionTypes';
 import createExcludeState from './createExcludeState';
 import excludeStep from './excludeStep';
+import sortedPaths from './sortedPaths';
 
 describe('excludeStep', () => {
   const options: TransformOptionsInternal = {
@@ -12,11 +13,8 @@ describe('excludeStep', () => {
   };
 
   /** The state for `paths`, which are expected to be valid and not empty */
-  const stateOf = (paths: string[]) => {
-    const state = createExcludeState(paths, options);
-    if (!state) throw new Error('Expected a state');
-    return state;
-  };
+  const stateOf = (paths: string[]) =>
+    createExcludeState(sortedPaths(paths), options);
 
   it('should keep the keys at which a path ends', () => {
     const state = stateOf(['user_id', 'metadata.*']);
