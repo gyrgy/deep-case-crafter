@@ -465,13 +465,25 @@ toShallowSnake({ userId: 1, userInfo: { firstName: 'Ann' } });
   `TypeError`, and read only then: changing the options object or the `exclude` array
   afterwards does not change the function.
 - Each call converts its data on its own, as a call to `transform` does: shared and
-  circular references are kept within a call. Pass an array of records in one call,
-  `toCamel(rows)`, rather than one record per call, `rows.map(toCamel)`: a call makes
-  fast objects of the results of 20 to 200 keys whose layout repeats in it (see
-  [3.6.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#360---2026-11-08)).
-  Made one per call, such results stay in dictionary mode: they take 4 to 7 times the
-  memory, are slower to read by property name, and records of 30 keys took half again
-  as long to convert.
+  circular references are kept within a call.
+- The function remembers the layouts of its results across its calls. Results of 20 to
+  200 keys are fast objects from the third one of a layout in a call (see
+  [3.6.0 in the changelog](https://github.com/gyrgy/deep-case-crafter/blob/main/CHANGELOG.md#360---2026-11-08)),
+  and records converted one per call, as `rows.map(toCamel)` does, from the fourth
+  call on; once the function knows a layout, from the first. Converted one per call
+  with `transform`, such records stay in dictionary mode. With Node 24, for 20,000
+  records, a third of whose values were strings, the function took 17–25% less time
+  than one call to `transform` per record at 20, 30, 50 and 100 keys, 7–10% less at
+  85 and 200 keys, and between 4% less and 3% more at 150 to 170 keys. Its results
+  took 33–40% less memory and read 2.4 to 4.4 times as fast by property name, but 1.5
+  to 2.2 times as slowly by a computed key from a list of keys.
+- Once a call has returned, the function keeps none of its data but keys: the keys of
+  some results, and for each layout it has learned, a copy of a result with an empty
+  object in place of every value. It checks each layout with the first result of that
+  layout in a call. Once it has learned 16 layouts (with `exclude`, 16 for one set of
+  matching paths), or results with the same number of keys and last key have other
+  keys, as records with optional keys or two kinds of records can, the rest of that call
+  and its later calls learn as calls to `transform` do.
 - Strings are returned as they are, as `transform` returns them. To convert keys, use
   [`transformKey`](#transformkeykey-options):
   `keys.map((key) => transformKey(key, { targetCase: 'snake' }))`.

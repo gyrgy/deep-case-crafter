@@ -14,7 +14,7 @@ describe('excludeStep', () => {
 
   /** The state for `paths`, which are expected to be valid and not empty */
   const stateOf = (paths: string[]) =>
-    createExcludeState(sortedPaths(paths), options);
+    createExcludeState(sortedPaths(paths), options, null);
 
   it('should keep the keys at which a path ends', () => {
     const state = stateOf(['user_id', 'metadata.*']);

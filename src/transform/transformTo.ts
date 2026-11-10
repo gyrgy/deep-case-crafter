@@ -1,5 +1,7 @@
 import runTransform from './runTransform';
+import createLayoutStore from './createLayoutStore';
 import resolveExclude from './exclude/resolveExclude';
+import forgetResults from './forgetResults';
 import { StringCase } from '../types/stringCaseTypes';
 import {
   NoUnknownOptions,
@@ -93,8 +95,59 @@ function transformTo(
   const exclude = options?.exclude;
   const paths = resolveExclude(Array.isArray(exclude) ? [...exclude] : exclude);
 
-  return (data) =>
-    runTransform(data, resolvedCase, depth, keepReferences, paths);
+  // Kept across calls, so records converted one per call become fast objects too. Once
+  // the function has stopped using one of them, later calls learn on their own, as calls
+  // to `transform` do, and the layouts already learned stay fast. So does a call made
+  // while another one runs, from a getter in its data.
+  const store = createLayoutStore();
+  let remembering = true;
+  let running = false;
+  let checkQueued = false;
+
+  const endCall = () => {
+    running = false;
+    // The memories must not keep the data of a call alive once it has returned
+    if (store.toForget.length !== 0 && forgetResults(store.toForget)) {
+      remembering = false;
+    }
+  };
+
+  return (data) => {
+    if (!remembering || running) {
+      if (running && !checkQueued) {
+        // V8 skips `finally` when it stops a call, as a `vm` timeout or Ctrl+C in the REPL
+        // does, which leaves `running` set, and the call's results in the memories until a
+        // later call. No call of the function runs while a promise job does: if it is
+        // still set by then, the call that set it is over
+        checkQueued = true;
+        void Promise.resolve().then(() => {
+          checkQueued = false;
+          if (running) endCall();
+        });
+      }
+      return runTransform(
+        data,
+        resolvedCase,
+        depth,
+        keepReferences,
+        paths,
+        null,
+      );
+    }
+    running = true;
+    try {
+      return runTransform(
+        data,
+        resolvedCase,
+        depth,
+        keepReferences,
+        paths,
+        store,
+      );
+    } finally {
+      endCall();
+    }
+  };
 }
 
 export default transformTo;

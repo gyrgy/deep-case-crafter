@@ -16,7 +16,7 @@ describe('stepScope', () => {
 
   /** The state for `paths`, which are expected to be valid and not empty */
   const stateOf = (paths: string[]) =>
-    createExcludeState(sortedPaths(paths), options);
+    createExcludeState(sortedPaths(paths), options, null);
 
   /** The state a scope transforms its values with, which is expected to exist */
   const stateIn = (scope: TransformScope) => {

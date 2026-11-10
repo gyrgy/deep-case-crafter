@@ -4,6 +4,7 @@ import {
   ExcludeStep,
 } from '../../types/excludeStateTypes';
 import { TransformOptionsInternal } from '../../types/transformOptionTypes';
+import memoryFor from '../memoryFor';
 import createStep from './createStep';
 import splitPath from './splitPath';
 
@@ -44,7 +45,7 @@ export default function createState(
     depth,
     keepReferences,
     exclude: null,
-    layouts: null,
+    layouts: root.store === null ? null : memoryFor(root.store, paths),
   };
   const state: ExcludeState = {
     options,

@@ -395,10 +395,14 @@ describe('internalTransform', () => {
       paths: string[],
       overrides: Partial<TransformOptionsInternal> = {},
     ) => {
-      const state = createExcludeState(sortedPaths(paths), {
-        ...options,
-        ...overrides,
-      });
+      const state = createExcludeState(
+        sortedPaths(paths),
+        {
+          ...options,
+          ...overrides,
+        },
+        null,
+      );
       return internalTransform(data, state.options, state.visitedRefs);
     };
 
@@ -680,7 +684,7 @@ describe('internalTransform', () => {
       expect(run.layouts?.fastWidths).toEqual([20]);
 
       // Under exclude paths too: 18 keys and keep_me are 19, left alone; with a symbol, 20
-      const state = createExcludeState(['keep_me'], fresh());
+      const state = createExcludeState(['keep_me'], fresh(), null);
       const narrow = () => ({ ...wide(18, 'narrow'), keep_me: { as_is: 1 } });
       const record = () => ({ ...wide(18), keep_me: { as_is: 1 }, [sym]: 1 });
       const result = internalTransform(
@@ -736,7 +740,7 @@ describe('internalTransform', () => {
       expect(result[3].ref).toBe(result[2]);
       for (const item of result.slice(4)) expect(item.selfRef).toBe(item);
 
-      const state = createExcludeState(['keep_me'], fresh());
+      const state = createExcludeState(['keep_me'], fresh(), null);
       const excluded = internalTransform(
         [wide(25), wide(25), shared, shared],
         state.options,
