@@ -1,3 +1,5 @@
+import { createContext, runInContext } from 'node:vm';
+import * as runTransformModule from './runTransform';
 import transform from './transform';
 import transformTo from './transformTo';
 import { StringCase } from '../types/stringCaseTypes';
@@ -230,6 +232,86 @@ describe('transformTo', () => {
     expect(second.metaData.a_a).not.toBe(first.metaData.a_a);
   });
 
+  /** A record of 25 keys and a `meta_data` object, as many calls convert one by one */
+  const wideRecord = (n: number): Record<string, unknown> => {
+    const record: Record<string, unknown> = { meta_data: { keep_me: n } };
+    for (let i = 0; i < 25; i++) {
+      record[`field_${i}_name`] = i % 2 ? { nested_value: n } : n;
+    }
+    return record;
+  };
+
+  it('should give the results transform gives while it remembers layouts across calls', () => {
+    const options = { exclude: ['meta_data.*'] };
+    const toKebab = transformTo('kebab', options);
+    for (let n = 0; n < 4; n++) {
+      expect(toKebab(wideRecord(n))).toEqual(
+        transform(wideRecord(n), { targetCase: 'kebab', ...options }),
+      );
+    }
+  });
+
+  it('should give the results transform gives once it has stopped remembering layouts', () => {
+    const toPascal = transformTo('pascal');
+    // Records of the same number of keys and last key, but other keys: many shapes
+    const shaped = (n: number) => {
+      const record = wideRecord(n);
+      record[`shape_${n % 2}_key`] = n;
+      record.last_key = n;
+      return record;
+    };
+    expect(toPascal([shaped(0), shaped(1)])).toEqual(
+      transform([shaped(0), shaped(1)], { targetCase: 'pascal' }),
+    );
+    for (let n = 0; n < 4; n++) {
+      expect(toPascal(wideRecord(n))).toEqual(
+        transform(wideRecord(n), { targetCase: 'pascal' }),
+      );
+    }
+  });
+
+  it('should give the results transform gives when a call inside a call stops remembering layouts', () => {
+    const toPascal = transformTo('pascal');
+    const shaped = (n: number) => {
+      const record = wideRecord(n);
+      record[`shape_${n % 2}_key`] = n;
+      record.last_key = n;
+      return record;
+    };
+    const data = () => ({
+      get inner_records() {
+        return toPascal([shaped(0), shaped(1)]);
+      },
+      outer_records: [wideRecord(1), wideRecord(2), wideRecord(3)],
+    });
+    for (let n = 0; n < 3; n++) {
+      expect(toPascal(data())).toEqual({
+        InnerRecords: transform([shaped(0), shaped(1)], {
+          targetCase: 'pascal',
+        }),
+        OuterRecords: transform([wideRecord(1), wideRecord(2), wideRecord(3)], {
+          targetCase: 'pascal',
+        }),
+      });
+    }
+  });
+
+  it('should keep working after a call that throws once it has seen a result', () => {
+    const toCamel = transformTo('camel');
+    const failing = {
+      wide_child: wideRecord(1),
+      get bad_key(): number {
+        throw new Error('getter failed');
+      },
+    };
+    expect(() => toCamel(failing)).toThrow('getter failed');
+    for (let n = 0; n < 3; n++) {
+      expect(toCamel({ wide_child: wideRecord(n) })).toEqual(
+        transform({ wide_child: wideRecord(n) }),
+      );
+    }
+  });
+
   it('should allow a call inside another one, from a getter', () => {
     const toSnake = transformTo('snake');
     const data = {
@@ -242,6 +324,62 @@ describe('transformTo', () => {
       inner_value: { inner_key: 1 },
       outer_key: 2,
     });
+  });
+
+  it('should give a call made while another one runs memories of its own, and keep its memories for the next calls', () => {
+    const run = jest.spyOn(runTransformModule, 'default');
+    const toSnake = transformTo('snake');
+    toSnake({
+      get innerValue() {
+        return toSnake({ innerKey: 1 });
+      },
+      outerKey: 2,
+    });
+    expect(() =>
+      toSnake({
+        get badKey(): number {
+          throw new Error('getter failed');
+        },
+      }),
+    ).toThrow('getter failed');
+    toSnake({ laterKey: 3 });
+    const stores = run.mock.calls.map((call) => call[5]);
+    run.mockRestore();
+    expect(stores).toHaveLength(4);
+    expect(stores[0]).not.toBeNull();
+    expect(stores[1]).toBeNull();
+    expect(stores[2]).toBe(stores[0]);
+    expect(stores[3]).toBe(stores[0]);
+  });
+
+  it('should use its memories again after a call that V8 stopped, which skips its finally', async () => {
+    const run = jest.spyOn(runTransformModule, 'default');
+    const toSnake = transformTo('snake');
+    const context = createContext({
+      toSnake,
+      data: {
+        get endlessValue() {
+          for (;;) {
+            // until the timeout stops the script
+          }
+        },
+      },
+    });
+    expect(() =>
+      runInContext('toSnake(data)', context, { timeout: 50 }),
+    ).toThrow('timed out');
+    // The flag its finally would have cleared is checked once no call runs
+    toSnake({ firstKey: 1 });
+    toSnake({ secondKey: 2 });
+    await Promise.resolve();
+    toSnake({ laterKey: 3 });
+    const stores = run.mock.calls.map((call) => call[5]);
+    run.mockRestore();
+    expect(stores).toHaveLength(4);
+    expect(stores[0]).not.toBeNull();
+    expect(stores[1]).toBeNull();
+    expect(stores[2]).toBeNull();
+    expect(stores[3]).toBe(stores[0]);
   });
 
   it('should pass on errors thrown while transforming, without starting over', () => {

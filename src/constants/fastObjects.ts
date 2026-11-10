@@ -25,6 +25,25 @@ export const LAYOUT_CANDIDATES = 16;
 
 /**
  * The most layouts `learnLayout` makes fast in one call or, with `exclude`, for one set of
- * matching paths
+ * matching paths. A function made by `transformTo` counts the layouts it learns in all its
+ * calls: once it has learned this many, the rest of the call learns on its own, and so do
+ * its later calls.
  */
 export const MAX_LAYOUTS = 16;
+
+/**
+ * What the copies that a function made by `transformTo` keeps of the layouts it learned
+ * hold in every field (see `copyLayout`). Being an object, it leaves each field with a
+ * representation that later values widen in place, if at all.
+ */
+export const NO_VALUE = {};
+
+/**
+ * How many checks of a layout (see `checkLayout`) a memory of a function made by
+ * `transformTo` makes before it replaces the layout's copy with a new one. A copy that V8
+ * has left out of its tree of transitions leaves the later results of the layout in
+ * dictionary mode until it is replaced, for at most this many calls that convert them, if
+ * V8 has room for the new one by then. The new copies made records of 200 keys converted
+ * one per call take 0.4% longer (Node 24, Apple M4 Pro).
+ */
+export const RECOPY_CHECKS = 100;

@@ -1,5 +1,5 @@
 import type { ExcludeState } from './excludeStateTypes';
-import type { LayoutMemory } from '../transform/learnLayout';
+import type { LayoutMemory } from './layoutTypes';
 import { PlainCase, StringCase } from './stringCaseTypes';
 
 /**
@@ -102,8 +102,10 @@ export interface TransformOptionsInternal {
   exclude: ExcludeState | null;
 
   /**
-   * The layouts of the call's wide results, for `learnLayout`: `null` until the first one.
-   * With `exclude`, every set of matching paths has its own.
+   * The layouts of the call's wide results, for `learnLayout`. For `transform`, `null`
+   * until the first one. For a function made by `transformTo`, the memory it keeps across
+   * its calls (see `LayoutStore`), until `learnLayout` replaces it with a memory of the
+   * call. With `exclude`, every set of matching paths has its own.
    */
   layouts: LayoutMemory | null;
 }

@@ -1,50 +1,30 @@
-import {
-  LAYOUT_CANDIDATES,
-  LAYOUT_MAX_KEYS,
-  MAX_LAYOUTS,
-} from '../constants/fastObjects';
+import { LAYOUT_CANDIDATES, LAYOUT_MAX_KEYS } from '../constants/fastObjects';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 import haveSameKeys from '../utils/haveSameKeys';
-
-/**
- * The layouts of the wide results of one call or, with `exclude`, of one set of matching
- * paths, whose options hold a memory of their own ("the call" below). Each layout is looked
- * up by its number of keys and its last key, which are cheap to track, and compared key by
- * key before it is learned.
- */
-export interface LayoutMemory {
-  /**
-   * Whether the call has stopped learning: it has learned `MAX_LAYOUTS` layouts, or a
-   * result had the number of keys and the last key of a layout seen once, but other keys,
-   * as records that come in many shapes, with optional keys present or left out, have.
-   * Such data reads faster when all of it stays in dictionary mode. A result with the
-   * number of keys and the last key of a layout already learned is not compared: it stops
-   * nothing, and stays in dictionary mode if its keys differ.
-   */
-  done: boolean;
-
-  /** Layouts seen once, in a ring of `LAYOUT_CANDIDATES`: number of keys, last key, result */
-  readonly seenWidths: number[];
-  readonly seenKeys: string[];
-  readonly seenResults: object[];
-  nextSeen: number;
-
-  /** Layouts learned in this call */
-  readonly fastWidths: number[];
-  readonly fastKeys: string[];
-
-  /**
-   * One fast object of each of those layouts, kept until the call returns: V8 drops the
-   * hidden classes of a layout that no object uses any more.
-   */
-  readonly fastObjects: object[];
-}
+import addLayout from './addLayout';
+import checkLayout from './checkLayout';
+import createLayoutMemory from './createLayoutMemory';
+import listToForget from './listToForget';
+import replaceMemory from './replaceMemory';
 
 /**
  * Teaches V8 the layout of `result`, an object of at least `DICTIONARY_MODE_KEYS` keys,
  * when it is the second result of that layout in the call: a copy made with spread syntax
  * is a fast object, and the results built after it with the same keys in the same order
- * follow its hidden classes and stay fast. The first two stay in dictionary mode.
+ * follow its hidden classes and stay fast (see `addLayout`). The first two stay in
+ * dictionary mode.
+ *
+ * A function made by `transformTo` keeps its memories across its calls, so the results
+ * can come from different calls, as when it converts one record per call. Across calls,
+ * a layout is learned from its third result: when a call returns, the memory keeps the
+ * keys of a result only if its layout came up in an earlier call as well. The results
+ * built after the copy are fast in its later calls too: the copy is kept, and each call
+ * checks the layouts it meets (see `checkLayout`). Once the function has stopped using
+ * one of its memories, because it learned `MAX_LAYOUTS` layouts, or met a result with
+ * other keys than one of an earlier call with the same number of keys and last key, the
+ * rest of the call learns with a memory of its own (see `replaceMemory`). Two results of
+ * the call itself with other keys stop the call's learning, as in a call to `transform`.
+ * Either way, the function's later calls learn on their own, as calls to `transform` do.
  *
  * `result` itself is never replaced, so references that already point to it stay valid.
  * Layouts seen only once, such as those of objects keyed by IDs, cost no copy.
@@ -62,31 +42,43 @@ export default function learnLayout(
   lastKey: string,
 ): void {
   if (width > LAYOUT_MAX_KEYS) return;
-  const memory = (options.layouts ??= {
-    done: false,
-    seenWidths: [],
-    seenKeys: [],
-    seenResults: [],
-    nextSeen: 0,
-    fastWidths: [],
-    fastKeys: [],
-    fastObjects: [],
-  });
+  let memory = (options.layouts ??= createLayoutMemory(null));
+  if (memory.replaced) memory = options.layouts = replaceMemory(memory);
   if (memory.done) return;
+  // Before the memory is given anything to forget: an exception, such as the RangeError
+  // of a full stack, must not leave a result in a memory that is not listed
+  listToForget(memory);
 
   const { fastWidths, fastKeys } = memory;
   for (let i = 0; i < fastWidths.length; i++) {
-    if (fastWidths[i] === width && fastKeys[i] === lastKey) return;
+    if (fastWidths[i] !== width || fastKeys[i] !== lastKey) continue;
+    // A memory kept across calls checks each layout once per call. Other keys: this
+    // result starts the call's memory of its own
+    if (
+      memory.toForget !== null &&
+      !memory.checked[i] &&
+      !checkLayout(memory, i, result)
+    ) {
+      learnLayout(options, result, width, lastKey);
+    }
+    return;
   }
 
   const { seenWidths, seenKeys, seenResults } = memory;
   for (let i = 0; i < seenWidths.length; i++) {
     if (seenWidths[i] !== width || seenKeys[i] !== lastKey) continue;
-    if (haveSameKeys(seenResults[i], result)) {
-      fastWidths.push(width);
-      fastKeys.push(lastKey);
-      memory.fastObjects.push({ ...result });
-      memory.done = fastWidths.length === MAX_LAYOUTS;
+    const seen = seenResults[i];
+    if (seen === null) {
+      // Seen in an earlier call, whose keys were not kept: compare the next one with this
+      seenResults[i] = result;
+      memory.seenAgain[i] = true;
+    } else if (haveSameKeys(seen, result)) {
+      addLayout(memory, result, width, lastKey);
+    } else if (Array.isArray(seen)) {
+      // The keys of a result of an earlier call: many shapes, and this result starts the
+      // call's memory of its own
+      memory.replaced = true;
+      learnLayout(options, result, width, lastKey);
     } else {
       memory.done = true;
     }
@@ -95,5 +87,6 @@ export default function learnLayout(
   seenWidths[memory.nextSeen] = width;
   seenKeys[memory.nextSeen] = lastKey;
   seenResults[memory.nextSeen] = result;
+  memory.seenAgain[memory.nextSeen] = false;
   memory.nextSeen = (memory.nextSeen + 1) % LAYOUT_CANDIDATES;
 }

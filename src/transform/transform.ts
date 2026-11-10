@@ -120,6 +120,7 @@ function transform(data: unknown, options?: TransformOptions): unknown {
     resolveDepth(options?.depth),
     resolveKeepReferences(options?.keepReferences),
     resolveExclude(options?.exclude),
+    null,
   );
 }
 

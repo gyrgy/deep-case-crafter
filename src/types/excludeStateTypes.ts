@@ -1,3 +1,4 @@
+import type { LayoutStore } from './layoutTypes';
 import type { ReferenceTable } from './referenceTableTypes';
 import type { TransformOptionsInternal } from './transformOptionTypes';
 
@@ -43,4 +44,10 @@ export interface ExcludeRoot {
   readonly plain: TransformScope;
   /** The states created so far, by their paths */
   readonly states: Map<string, ExcludeState>;
+  /**
+   * The layout memories that a function made by `transformTo` keeps across its calls, one
+   * per set of paths; `null` for `transform`, and for a function that no longer keeps them
+   * (its states then start their memories empty, as `transform`'s do)
+   */
+  readonly store: LayoutStore | null;
 }

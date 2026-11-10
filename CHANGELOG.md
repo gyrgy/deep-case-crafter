@@ -15,6 +15,26 @@ All notable changes to deep-case-crafter are listed here. The format is based on
   `fetchUser().then(transformTo('camel'))`, `items.map(transformTo('snake'))`. Passed by
   name, `transform` itself gets an `unknown` result type, and `map` passes it the index
   as its options. The options are checked and read once, when the function is made.
+- A function made by `transformTo` remembers the layouts of its results across its
+  calls, so records of 20 to 200 keys converted one per call, as `rows.map(toCamel)`
+  does, are fast objects from the fourth call on, and from the first once the function
+  knows their layout. Measured with Node 24 on an Apple M4 Pro, for 20,000 records
+  converted one per call, a third of whose values were strings, the function took
+  17–25% less time than one call to `transform` per record at 20, 30, 50 and 100 keys,
+  7–10% less at 85 and 200 keys, and between 4% less and 3% more at 150 to 170 keys.
+  Its results took 33–40% less memory and read 2.4 to 4.4 times as fast by property
+  name; read by a computed key from a list of keys, they take 1.5 times as long at 30
+  keys and 2.2 times at 100, as the results of one call to `transform` have since 3.6.0.
+  Records of fewer keys or in many shapes, and objects keyed by IDs, convert within 2%
+  of the time they took with `transform`.
+- Once a call has returned, the function keeps none of its data but keys: the keys of
+  some results, and for each layout it has learned, a copy of a result with an empty
+  object in place of every value. A record with a value of another kind in a field,
+  such as a fraction where the others had whole numbers, leaves the layout fast. The
+  function checks each layout with the first result of that layout in a call. Once it
+  has learned 16 layouts (with `exclude`, 16 for one set of matching paths), or results
+  with the same number of keys and last key have other keys, the rest of that call and
+  its later calls learn as calls to `transform` do.
 - The types `TransformTo<TargetCase, Options>`, of such a function, and
   `TransformToOptions`, of its options (`depth`, `exclude` and `keepReferences`), which
   `TransformOptions` now extends.
