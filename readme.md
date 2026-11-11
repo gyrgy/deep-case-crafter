@@ -255,7 +255,7 @@ Where the others are better or different:
 
 - **Bundle size**: bundled and minified with esbuild, ts-case-convert's `objectToCamel`
   and `objectToSnake` take about 1.1 KB gzipped, deep-case-crafter's `transform` about
-  3.2 KB.
+  3.7 KB.
 - **CONSTANT_CASE input**: camelcase-keys, snakecase-keys and es-toolkit also read
   SCREAMING_SNAKE_CASE keys, so `USER_ID` becomes `userId` or `user_id`.
   deep-case-crafter converts to CONSTANT_CASE, but leaves keys such as `USER_ID` and

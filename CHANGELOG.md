@@ -4,7 +4,7 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.7.0] - 2026-11-11
 
 ### Added
 
@@ -38,6 +38,13 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 - The types `TransformTo<TargetCase, Options>`, of such a function, and
   `TransformToOptions`, of its options (`depth`, `exclude` and `keepReferences`), which
   `TransformOptions` now extends.
+
+### Changed
+
+- `transform` takes about 3.7 KB gzipped, bundled and minified (3.2 KB).
+- `transform` reads `keepReferences` from its options before `exclude`, as
+  `transformTo` does, so getters or a Proxy among the options see them in that order.
+  Its results, and the errors that invalid options throw, are the same as before.
 
 ## [3.6.0] - 2026-11-08
 
@@ -477,7 +484,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
-[Unreleased]: https://github.com/gyrgy/deep-case-crafter/compare/v3.6.0...HEAD
+[3.7.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.7.0
 [3.6.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.6.0
 [3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0
 [3.4.1]: https://www.npmjs.com/package/deep-case-crafter/v/3.4.1
