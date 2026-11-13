@@ -9,6 +9,7 @@ import { TransformOptionsInternal } from '../types/transformOptionTypes';
 import getObjectTag from '../utils/getObjectTag';
 import isMap from '../utils/isMap';
 import isSet from '../utils/isSet';
+import readProperty from '../utils/readProperty';
 import setKey from '../utils/setKey';
 import copySymbolProperties from './copySymbolProperties';
 import findReference from './findReference';
@@ -32,11 +33,11 @@ import transformMembers from './transformMembers';
  * function directly (two small frames per level): `transformItems`, `transformEntries`
  * and `transformMembers`. The loops are separate functions, not closures, so that no
  * function is created per node and this function's stack frame stays small: with them
- * inlined, a first call converts nested objects about a quarter less deep (1,800 instead
- * of 2,400 levels on Node 24), though nested arrays deeper. With `exclude`, objects and
- * Maps where a path still matches go through `transformExcludedProperties` and
- * `transformExcludedEntries`; arrays and Sets add no key to a path, so their items stay in
- * the scope of their collection.
+ * inlined, a first call converted nested objects about a quarter less deep (1,800 instead
+ * of 2,400 levels on Node 24, measured for 3.6.0), though nested arrays deeper. With
+ * `exclude`, objects and Maps where a path still matches go through
+ * `transformExcludedProperties` and `transformExcludedEntries`; arrays and Sets add no key
+ * to a path, so their items stay in the scope of their collection.
  *
  * @param data - The data to transform (object, array, Map, Set)
  * @param options - Transformation options
@@ -142,13 +143,14 @@ export default function internalTransform(
     // The key being stored: after the loop, the last one
     let resultKey = '';
 
-    // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped).
-    // Values that are not objects are stored without a call.
+    // Own enumerable string keys (`for...in` skips symbols, and inherited keys are skipped;
+    // see `readProperty` for what keeps this loop fast in V8). Values that are not
+    // objects are stored without a call.
     for (const key in source) {
       if (Object.prototype.hasOwnProperty.call(source, key)) {
         resultKey = transformObjectKey(key, options.targetCase);
         width++;
-        const value = source[key];
+        const value = readProperty(source, key);
         if (typeof value !== 'object' || value === null) {
           setKey(result, resultKey, value);
           continue;

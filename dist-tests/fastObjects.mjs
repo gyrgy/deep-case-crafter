@@ -1,5 +1,6 @@
 /**
- * Checks that the built package returns fast objects. V8 stores an object built with
+ * Checks that the built package returns fast objects, and that the loop that reads objects
+ * stays compiled. V8 stores an object built with
  * computed keys, as `transform` builds its results, in dictionary mode from its 20th key,
  * unless a fast object with the same keys in the same order already exists. `transform`
  * makes one from the second result of each layout that repeats in a call, so the results
@@ -12,7 +13,9 @@
  * Run with `npm run test:dist-objects` after `npm run build` (it needs
  * `node --allow-natives-syntax`).
  */
+import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import * as esm from '../dist/index.mjs';
 
 const cjs = createRequire(import.meta.url)('../dist/index.js');
@@ -525,6 +528,45 @@ for (const [name, { transformTo }] of [
     'after user code wrote a fraction into a result, the next call is fast from its first result',
     toCamelWrites(amountRecords(tagWrites)).every(isFast),
   );
+}
+
+// The loops that read objects stay compiled once they have met an object keyed by numbers:
+// counted in a process of its own, from V8's trace of deoptimizations
+{
+  const { stdout, stderr, status, signal, error } = spawnSync(
+    process.execPath,
+    [
+      '--allow-natives-syntax',
+      '--trace-deopt',
+      fileURLToPath(new URL('deoptLoop.cjs', import.meta.url)),
+      fileURLToPath(new URL('../dist/index.js', import.meta.url)),
+    ],
+    { encoding: 'utf8', maxBuffer: 1 << 26 },
+  );
+  /** The trace lines of deoptimizations between two markers */
+  const deopts = (from, to) =>
+    stdout
+      .slice(stdout.indexOf(from), stdout.indexOf(to))
+      .split('\n')
+      .filter((line) => /bailout|deoptimizing/.test(line)).length;
+  if (error || signal || status !== 0 || !stdout.includes('--- end exclude')) {
+    failed.push(
+      `deoptimization check: the child process failed (${error ?? signal ?? `exit ${status}`}): ${stderr.slice(-500)}`,
+    );
+  } else if (deopts('', '--- canary') === 0) {
+    failed.push(
+      'deoptimization check: the trace shows no deoptimization of the canary (format changed?)',
+    );
+  } else {
+    for (const name of ['plain', 'exclude']) {
+      const count = deopts(`--- after ${name}`, `--- end ${name}`);
+      if (count > 50) {
+        failed.push(
+          `CommonJS build: ${count} deoptimizations in the process after an object keyed by numbers (${name}; limit 50)`,
+        );
+      }
+    }
+  }
 }
 
 if (failed.length > 0) {

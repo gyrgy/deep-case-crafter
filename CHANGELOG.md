@@ -8,6 +8,19 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 
 ### Fixed
 
+- `transform`, and the functions that `transformTo` makes, no longer slow down for the
+  rest of the process after converting one object keyed by numbers (`{ "1": … }`), or
+  one with at most one key whose keys V8 cannot list from its hidden class: one made by
+  `Object.create(null)`, or one in dictionary mode, as an object that keys were deleted
+  from can be. After such an object, on Node 24 and later, V8 compiled the loop that
+  reads objects about a thousand times in 40 conversions, and records of 5 to 100 keys
+  took 2.1 to 2.5 times as long to convert. The loop now reads values through a function
+  of its own, which keeps V8 from compiling it again and again: measured with Node 24 on
+  an Apple M4 Pro, those records then convert in 27–42% less time than with 3.7.0 (25–38%
+  with Node 26), and other data converts as fast as before: no scenario measured takes
+  over 3% longer. Node 20 and 22 never compiled the loop again, and are as fast as with
+  3.7.0: after such an object, V8 there takes a slower path through the loop, which
+  still takes 7–65% longer than before it.
 - A number of another kind in the middle of a call, a fraction or one of 2^31 or more in
   a field of whole numbers, no longer leaves the later results of 20 to 200 keys with
   that layout in dictionary mode. From the third result of a layout in a call, or from

@@ -1,5 +1,6 @@
 import { DICTIONARY_MODE_KEYS } from '../constants/fastObjects';
 import { ExcludeState } from '../types/excludeStateTypes';
+import readProperty from '../utils/readProperty';
 import setKey from '../utils/setKey';
 import copySymbolProperties from './copySymbolProperties';
 import excludeStep from './exclude/excludeStep';
@@ -31,6 +32,7 @@ export default function transformExcludedProperties(
 ): void {
   let width = 0;
   let resultKey = '';
+  // As `internalTransform` reads an object (see `readProperty`)
   for (const key in source) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       const step = excludeStep(state, key);
@@ -43,7 +45,7 @@ export default function transformExcludedProperties(
         result,
         resultKey,
         internalTransform(
-          source[key],
+          readProperty(source, key),
           scope.options,
           scope.visitedRefs,
           depth,

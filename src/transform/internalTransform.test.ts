@@ -302,8 +302,13 @@ describe('internalTransform', () => {
     });
 
     try {
-      const result = internalTransform({ own_prop: 1 }, options) as object;
-      expect(Object.keys(result)).toEqual(['ownProp']);
+      const result = internalTransform(
+        { own_prop: 1, nested_object: { nested_key: 2 } },
+        options,
+      ) as { nestedObject: object };
+      expect(result).toEqual({ ownProp: 1, nestedObject: { nestedKey: 2 } });
+      expect(Object.keys(result)).toEqual(['ownProp', 'nestedObject']);
+      expect(Object.keys(result.nestedObject)).toEqual(['nestedKey']);
     } finally {
       delete (Object.prototype as Record<string, unknown>).polluted_prop;
     }

@@ -479,6 +479,132 @@ describe('transform (recursive)', () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
+  it('should leave out enumerable keys added to Object.prototype, with and without exclude', () => {
+    Object.defineProperty(Object.prototype, 'polluted_prop', {
+      value: { nested_key: 1 },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      const input = {
+        own_prop: 1,
+        null_prototype: Object.assign(Object.create(null), { a_b: 2 }),
+        meta_data: { c_d: 3 },
+      };
+      const expected = {
+        ownProp: 1,
+        nullPrototype: { aB: 2 },
+        metaData: { c_d: 3 },
+      };
+      expect(transform(input, { exclude: ['meta_data.*'] })).toEqual(expected);
+      expect(Object.keys(transform(input))).toEqual([
+        'ownProp',
+        'nullPrototype',
+        'metaData',
+      ]);
+      expect(Object.keys(transform(input).metaData)).toEqual(['cD']);
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).polluted_prop;
+    }
+  });
+
+  it('should leave out enumerable keys that getters add to Object.prototype during the call, running each getter once', () => {
+    let reads = 0;
+    const pollute = () => {
+      Object.defineProperty(Object.prototype, 'polluted_prop', {
+        value: 1,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    };
+    const clean = () => {
+      delete (Object.prototype as Record<string, unknown>).polluted_prop;
+    };
+    // One getter adds the key, a later one removes it again
+    const data = () => ({
+      first_object: { g_h: 1 },
+      get a_b() {
+        reads++;
+        pollute();
+        return 1;
+      },
+      c_d: { e_f: 2 },
+      get i_j() {
+        clean();
+        return 3;
+      },
+      k_l: { m_n: 4 },
+    });
+    try {
+      const result = transform(data());
+      expect(result).toEqual({
+        firstObject: { gH: 1 },
+        aB: 1,
+        cD: { eF: 2 },
+        iJ: 3,
+        kL: { mN: 4 },
+      });
+      // Converted while the key was there
+      expect(Object.keys(result.cD)).toEqual(['eF']);
+      expect(reads).toBe(1);
+      expect(Object.keys(transform(data(), { exclude: ['c_d.*'] }).cD)).toEqual(
+        ['e_f'],
+      );
+      expect(reads).toBe(2);
+      // The key left in place, through a start-over for data nested too deep with
+      // keepReferences: false
+      let deep: unknown = { x_y: 1 };
+      for (let i = 0; i < 300; i++) deep = { n_n: deep };
+      const leaving = {
+        first_object: { g_h: 1 },
+        get a_b() {
+          reads++;
+          pollute();
+          return 1;
+        },
+        c_d: { e_f: 2 },
+        deep_data: deep,
+      };
+      const deepResult = transform(leaving, { keepReferences: false });
+      expect(Object.keys(deepResult.firstObject)).toEqual(['gH']);
+      expect(Object.keys(deepResult.cD)).toEqual(['eF']);
+      expect(reads).toBe(4); // once in each attempt
+    } finally {
+      clean();
+    }
+  });
+
+  it('should leave out keys that a getter deletes before their turn, names that Object.prototype has included', () => {
+    // for...in still lists a deleted key whose name the prototype chain has
+    const names = ['constructor', 'toString', '__proto__', 'user_id'];
+    const data = () => {
+      const record: Record<string, unknown> = {};
+      Object.defineProperty(record, 'first_key', {
+        enumerable: true,
+        get() {
+          for (const name of names) Reflect.deleteProperty(record, name);
+          return 1;
+        },
+      });
+      for (const name of [...names, 'last_key']) {
+        Object.defineProperty(record, name, {
+          value: name,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+      }
+      return record;
+    };
+    expect(Object.keys(transform(data()))).toEqual(['firstKey', 'lastKey']);
+    expect(Object.keys(transform(data(), { exclude: ['other_key'] }))).toEqual([
+      'firstKey',
+      'lastKey',
+    ]);
+  });
+
   it('should leave data keys written only in capitals unchanged', () => {
     const input = {
       exchange_rates: { USD: 1, EUR: 0.9 },
