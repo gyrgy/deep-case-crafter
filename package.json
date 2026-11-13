@@ -1,6 +1,6 @@
 {
   "name": "deep-case-crafter",
-  "version": "3.7.0",
+  "version": "3.7.1",
   "description": "Convert object keys between camelCase and snake_case, deeply, with exact TypeScript types",
   "type": "commonjs",
   "main": "dist/index.js",
