@@ -6,13 +6,14 @@ import createLayoutStore from './createLayoutStore';
 describe('addLayout', () => {
   const result = { someKey: 1, lastKey: 'a' };
 
-  it('should keep a copy of the result in a memory of one call', () => {
+  it('should keep a copy of the result in a memory of one call, not emptied yet', () => {
     const memory = createLayoutMemory(null);
     addLayout(memory, result, 25, 'lastKey');
     expect(memory.fastWidths).toEqual([25]);
     expect(memory.fastKeys).toEqual(['lastKey']);
     expect(memory.fastObjects).toEqual([result]);
     expect(memory.fastObjects[0]).not.toBe(result);
+    expect(memory.checked).toEqual([false]);
     expect(memory.fastKeyLists).toEqual([]);
   });
 
@@ -33,15 +34,14 @@ describe('addLayout', () => {
 
   it('should leave a layout unlearned when storing it throws partway, and store the next one in its place', () => {
     const memory = createLayoutStore().plain;
-    // Reflect.ownKeys runs in copyLayout, then once the copy is stored: the second call
-    // throws. Called directly: `expect` uses it too
+    // Reflect.ownKeys runs once the copy is stored. Called directly: `expect` uses it too
     const ownKeys = Reflect.ownKeys;
     let calls = 0;
     const keys = jest
       .spyOn(Reflect, 'ownKeys')
       .mockImplementation((target: object) => {
         calls++;
-        if (calls === 2) {
+        if (calls === 1) {
           throw new RangeError('Maximum call stack size exceeded');
         }
         return ownKeys(target);
@@ -53,7 +53,7 @@ describe('addLayout', () => {
       thrown = error;
     }
     keys.mockRestore();
-    expect(calls).toBe(2);
+    expect(calls).toBe(1);
     expect(thrown).toBeInstanceOf(RangeError);
     expect(memory.fastWidths).toEqual([]);
     expect(memory.fastObjects).toHaveLength(1);
@@ -67,7 +67,7 @@ describe('addLayout', () => {
     expect(memory.fastKeyLists).toEqual([['someKey', 'lastKey']]);
   });
 
-  it('should stop a memory of one call at MAX_LAYOUTS, and have a memory kept across calls replaced', () => {
+  it('should stop a memory of one call at MAX_LAYOUTS, emptying its copies, and have a memory kept across calls replaced', () => {
     const call = createLayoutMemory(null);
     const kept = createLayoutStore().plain;
     for (let i = 0; i < MAX_LAYOUTS; i++) {
@@ -80,5 +80,10 @@ describe('addLayout', () => {
     expect(call.replaced).toBe(false);
     expect(kept.replaced).toBe(true);
     expect(kept.done).toBe(false);
+    // No later result of their layouts would empty them
+    expect(call.fastObjects).toEqual(
+      Array(MAX_LAYOUTS).fill({ someKey: NO_VALUE, lastKey: NO_VALUE }),
+    );
+    expect(call.checked).toEqual(Array(MAX_LAYOUTS).fill(true));
   });
 });

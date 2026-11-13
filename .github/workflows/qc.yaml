@@ -75,3 +75,34 @@ jobs:
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.consumer.json
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.loose.json
           npx --yes --package typescript@7 -- tsc -p dist-type-tests/tsconfig.exact.json
+
+  dist-newer-node:
+    # Only Node 24 and later compiled the loop that reads objects again and again: the
+    # check of that (dist-tests/deoptLoop.cjs) can fail only there
+    name: Dist Checks on Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['24', '26']
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Package
+        run: npm run build
+
+      - name: Check Fast Result Objects
+        run: npm run test:dist-objects

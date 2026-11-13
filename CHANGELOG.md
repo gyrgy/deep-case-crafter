@@ -4,6 +4,50 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `transform`, and the functions that `transformTo` makes, no longer slow down for the
+  rest of the process after converting one object keyed by numbers (`{ "1": … }`), or
+  one with at most one key whose keys V8 cannot list from its hidden class: one made by
+  `Object.create(null)`, or one in dictionary mode, as an object that keys were deleted
+  from can be. After such an object, on Node 24 and later, V8 compiled the loop that
+  reads objects about a thousand times in 40 conversions, and records of 5 to 100 keys
+  took 2.1 to 2.5 times as long to convert. The loop now reads values through a function
+  of its own, which keeps V8 from compiling it again and again: measured with Node 24 on
+  an Apple M4 Pro, those records then convert in 27–42% less time than with 3.7.0 (25–38%
+  with Node 26), and other data converts as fast as before: no scenario measured takes
+  over 3% longer. Node 20 and 22 never compiled the loop again, and are as fast as with
+  3.7.0: after such an object, V8 there takes a slower path through the loop, which
+  still takes 7–65% longer than before it.
+- A number of another kind in the middle of a call, a fraction or one of 2^31 or more in
+  a field of whole numbers, no longer leaves the later results of 20 to 200 keys with
+  that layout in dictionary mode. From the third result of a layout in a call, or from
+  when the call stops learning layouts, `transform` keeps a copy of the layout without
+  data, as the functions that `transformTo` makes have since 3.7.0, so a number of
+  another kind in the third result leaves only that result in dictionary mode. 3.7.0
+  left every later result in dictionary mode for records built with computed keys, as
+  some database drivers build rows. Emptying the copy costs about 0.2 µs for each layout
+  of 20 keys, 0.3 µs for 30 keys and 0.6 µs for 50 keys that a call meets three times or
+  more: 4–18% of the time of a call that converts 3 to 20 such records, the most for 3,
+  and nothing for a call with fewer.
+- `transform`, and the functions that `transformTo` makes, no longer throw a `TypeError`
+  for a key that converts to a name `Object.prototype` has, when that name cannot be
+  written there, as none can once it is frozen. After `Object.freeze(Object.prototype)`,
+  `transform({ to_string: 1 })` threw `Cannot assign to read only property 'toString'`,
+  and so did `value_of`, `constructor` and the other names. Such a key is now stored as
+  the result's own property, as every other key is; while `Object.prototype` is frozen,
+  each one costs about 5 µs, as the assignment is tried first. Processes started with
+  Node's `--frozen-intrinsics` were not affected.
+- They no longer throw (`….get is not a function`) while `Object.prototype` has a key
+  that is an index, such as `0`, which a prototype pollution attack can give it. Since
+  3.0.0, every call that keeps references, as calls do by default, threw then.
+
+### Changed
+
+- `transform` takes about 3.9 KB gzipped, bundled and minified (3.7 KB).
+
 ## [3.7.0] - 2026-11-11
 
 ### Added
@@ -484,6 +528,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[Unreleased]: https://github.com/gyrgy/deep-case-crafter/compare/v3.7.0...HEAD
 [3.7.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.7.0
 [3.6.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.6.0
 [3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0

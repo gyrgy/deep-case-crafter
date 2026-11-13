@@ -32,8 +32,8 @@ export const LAYOUT_CANDIDATES = 16;
 export const MAX_LAYOUTS = 16;
 
 /**
- * What the copies that a function made by `transformTo` keeps of the layouts it learned
- * hold in every field (see `copyLayout`). Being an object, it leaves each field with a
+ * What the copies that layout memories keep of the layouts they learned hold in every
+ * field (see `copyLayout`). Being an object, it leaves each field with a
  * representation that later values widen in place, if at all.
  */
 export const NO_VALUE = {};

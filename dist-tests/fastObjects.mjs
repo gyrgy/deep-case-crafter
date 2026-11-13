@@ -1,5 +1,6 @@
 /**
- * Checks that the built package returns fast objects. V8 stores an object built with
+ * Checks that the built package returns fast objects, and that the loop that reads objects
+ * stays compiled. V8 stores an object built with
  * computed keys, as `transform` builds its results, in dictionary mode from its 20th key,
  * unless a fast object with the same keys in the same order already exists. `transform`
  * makes one from the second result of each layout that repeats in a call, so the results
@@ -12,7 +13,9 @@
  * Run with `npm run test:dist-objects` after `npm run build` (it needs
  * `node --allow-natives-syntax`).
  */
+import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import * as esm from '../dist/index.mjs';
 
 const cjs = createRequire(import.meta.url)('../dist/index.js');
@@ -350,6 +353,56 @@ for (const [name, { transform, transformTo }] of [
       .some(isFast),
   );
 
+  // A number of another kind in the middle of a call, a fraction or one of 2^31 or more in
+  // a field of whole numbers, leaves the later results fast: from the third result of a
+  // layout, the copy that transform keeps of it holds no values, so V8 does not retire its
+  // hidden classes. Rows built with keyed stores, as some database drivers build them, keep
+  // their own kinds of numbers.
+  const keyedRow = (kind, amount) => {
+    const object = {};
+    object[`${kind}_key_0`] = 0;
+    object[`${kind}_amount`] = amount;
+    for (let i = 2; i < 25; i++) object[`${kind}_key_${i}`] = i;
+    return object;
+  };
+  for (const [name, value] of [
+    ['a fraction', 12.5],
+    ['a number of 2^31', 2 ** 31],
+  ]) {
+    const kind = tag(`midCall ${name}`.replace(/[ ^]/g, '_'));
+    check(
+      build,
+      `${name} in a field of whole numbers in the middle of a call leaves the later results fast`,
+      fastFromThird(
+        transform(
+          Array.from({ length: 8 }, (_, i) =>
+            keyedRow(kind, i === 4 ? value : i),
+          ),
+        ),
+      ),
+    );
+  }
+  // Once a call has stopped learning layouts, no third result empties the copies it keeps:
+  // they are emptied then
+  const stoppedKind = tag('midCallStopped');
+  const stoppedCall = transform([
+    keyedRow(stoppedKind, 0),
+    keyedRow(stoppedKind, 1),
+    // Two results with the same number of keys and last key, but other keys
+    ...[0, 1].map((i) => ({
+      ...wide(tag(`stop${i}`), 23),
+      [`${tag('stop')}_last`]: 1,
+    })),
+    ...Array.from({ length: 6 }, (_, i) =>
+      keyedRow(stoppedKind, i === 1 ? 12.5 : i),
+    ),
+  ]);
+  check(
+    build,
+    'a fraction after the call has stopped learning layouts leaves the later results fast',
+    fastFromThird([...stoppedCall.slice(0, 2), ...stoppedCall.slice(4)]),
+  );
+
   const sym = Symbol('meta');
   check(
     build,
@@ -475,6 +528,64 @@ for (const [name, { transformTo }] of [
     'after user code wrote a fraction into a result, the next call is fast from its first result',
     toCamelWrites(amountRecords(tagWrites)).every(isFast),
   );
+}
+
+// The loops that read objects stay compiled once they have met an object keyed by numbers:
+// counted in a process of its own, from V8's trace of deoptimizations
+{
+  const { stdout, stderr, status, signal, error } = spawnSync(
+    process.execPath,
+    [
+      '--allow-natives-syntax',
+      '--trace-deopt',
+      fileURLToPath(new URL('deoptLoop.cjs', import.meta.url)),
+      fileURLToPath(new URL('../dist/index.js', import.meta.url)),
+    ],
+    { encoding: 'utf8', maxBuffer: 1 << 26 },
+  );
+  /** The trace lines of deoptimizations between two markers */
+  const deopts = (from, to) =>
+    stdout
+      .slice(stdout.indexOf(from), stdout.indexOf(to))
+      .split('\n')
+      .filter((line) => /bailout|deoptimizing/.test(line)).length;
+  if (error || signal || status !== 0 || !stdout.includes('--- end exclude')) {
+    failed.push(
+      `deoptimization check: the child process failed (${error ?? signal ?? `exit ${status}`}): ${stderr.slice(-500)}`,
+    );
+  } else if (deopts('', '--- canary') === 0) {
+    failed.push(
+      'deoptimization check: the trace shows no deoptimization of the canary (format changed?)',
+    );
+  } else {
+    for (const name of ['plain', 'exclude']) {
+      const count = deopts(`--- after ${name}`, `--- end ${name}`);
+      if (count > 50) {
+        failed.push(
+          `CommonJS build: ${count} deoptimizations in the process after an object keyed by numbers (${name}; limit 50)`,
+        );
+      }
+    }
+  }
+}
+
+// The built file converts in a process whose Object.prototype is frozen, and in one where
+// it has keys that are indexes (see hostilePrototype.cjs)
+for (const mode of ['frozen', 'indexes']) {
+  const { stderr, status, signal, error } = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(new URL('hostilePrototype.cjs', import.meta.url)),
+      fileURLToPath(new URL('../dist/index.js', import.meta.url)),
+      mode,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (error || signal || status !== 0) {
+    failed.push(
+      `CommonJS build: converting while Object.prototype is hostile (${mode}) failed (${error ?? signal ?? `exit ${status}`}): ${stderr.slice(-500)}`,
+    );
+  }
 }
 
 if (failed.length > 0) {

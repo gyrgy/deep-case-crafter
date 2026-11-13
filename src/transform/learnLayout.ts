@@ -4,6 +4,8 @@ import haveSameKeys from '../utils/haveSameKeys';
 import addLayout from './addLayout';
 import checkLayout from './checkLayout';
 import createLayoutMemory from './createLayoutMemory';
+import emptyCopies from './emptyCopies';
+import emptyLayout from './emptyLayout';
 import listToForget from './listToForget';
 import replaceMemory from './replaceMemory';
 
@@ -52,14 +54,19 @@ export default function learnLayout(
   const { fastWidths, fastKeys } = memory;
   for (let i = 0; i < fastWidths.length; i++) {
     if (fastWidths[i] !== width || fastKeys[i] !== lastKey) continue;
-    // A memory kept across calls checks each layout once per call. Other keys: this
-    // result starts the call's memory of its own
-    if (
-      memory.toForget !== null &&
-      !memory.checked[i] &&
-      !checkLayout(memory, i, result)
-    ) {
-      learnLayout(options, result, width, lastKey);
+    if (!memory.checked[i]) {
+      if (memory.toForget === null) {
+        // The layout's third result in the call: its copy is emptied now (see `addLayout`)
+        emptyLayout(
+          memory.fastObjects[i] as Record<PropertyKey, unknown>,
+          width,
+        );
+        memory.checked[i] = true;
+      } else if (!checkLayout(memory, i, result)) {
+        // A memory kept across calls checks each layout once per call. Other keys: this
+        // result starts the call's memory of its own
+        learnLayout(options, result, width, lastKey);
+      }
     }
     return;
   }
@@ -81,6 +88,7 @@ export default function learnLayout(
       learnLayout(options, result, width, lastKey);
     } else {
       memory.done = true;
+      if (memory.toForget === null) emptyCopies(memory);
     }
     return;
   }

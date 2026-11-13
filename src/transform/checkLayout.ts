@@ -33,7 +33,7 @@ export default function checkLayout(
     return false;
   }
   if (++memory.checks[index] % RECOPY_CHECKS === 0) {
-    memory.fastObjects[index] = copyLayout(result);
+    memory.fastObjects[index] = copyLayout(result, memory.fastWidths[index]);
   }
   return true;
 }
