@@ -569,9 +569,9 @@ for (const [name, { transformTo }] of [
   }
 }
 
-// The built file converts in a process whose Object.prototype is frozen (see
-// hostilePrototype.cjs)
-for (const mode of ['frozen']) {
+// The built file converts in a process whose Object.prototype is frozen, and in one where
+// it has keys that are indexes (see hostilePrototype.cjs)
+for (const mode of ['frozen', 'indexes']) {
   const { stderr, status, signal, error } = spawnSync(
     process.execPath,
     [

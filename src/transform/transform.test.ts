@@ -642,6 +642,45 @@ describe('transform (recursive)', () => {
     ]);
   });
 
+  it('should convert data while Object.prototype has keys that are indexes', () => {
+    const shared = { inner_key: 1 };
+    const data = () => ({
+      first_item: shared,
+      second_item: shared,
+      item_list: [{ list_key: 1 }, [{ deep_key: 2 }]],
+      item_map: new Map([['map_key', { set_of: new Set([{ a_b: 3 }]) }]]),
+    });
+    const run = () => [
+      transform(data()),
+      transform(data(), { depth: 3 }),
+      transform(data(), { keepReferences: false }),
+      transform(data(), { exclude: ['item_map.*'], depth: 4 }),
+    ];
+    const expected = run();
+    const indexes = [0, 1, 2, 3, 4];
+    const runWithIndexes = () => {
+      for (const index of indexes) {
+        Object.defineProperty(Object.prototype, index, {
+          value: 'inherited',
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+      }
+      try {
+        return run();
+      } finally {
+        for (const index of indexes) {
+          delete (Object.prototype as Record<number, unknown>)[index];
+        }
+      }
+    };
+    const results = runWithIndexes();
+    expect(results).toEqual(expected);
+    const [first] = results as { firstItem: object; secondItem: object }[];
+    expect(first.firstItem).toBe(first.secondItem);
+  });
+
   it('should leave data keys written only in capitals unchanged', () => {
     const input = {
       exchange_rates: { USD: 1, EUR: 0.9 },

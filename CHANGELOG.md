@@ -40,6 +40,9 @@ All notable changes to deep-case-crafter are listed here. The format is based on
   the result's own property, as every other key is; while `Object.prototype` is frozen,
   each one costs about 5 µs, as the assignment is tried first. Processes started with
   Node's `--frozen-intrinsics` were not affected.
+- They no longer throw (`….get is not a function`) while `Object.prototype` has a key
+  that is an index, such as `0`, which a prototype pollution attack can give it. Since
+  3.0.0, every call that keeps references, as calls do by default, threw then.
 
 ### Changed
 

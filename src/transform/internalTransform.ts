@@ -75,7 +75,11 @@ export default function internalTransform(
   const level = options.depth === Infinity ? 0 : currentDepth;
   const tracked = options.keepReferences;
   if (tracked) {
-    const seen = findReference((visitedRefs[level] ??= new Map()), data);
+    // Every level up to this one gets a table, so that the array has no gaps: an index
+    // that an array does not have is read from its prototypes, and `Object.prototype` can
+    // have a key such as `0`
+    while (visitedRefs.length <= level) visitedRefs.push(new Map());
+    const seen = findReference(visitedRefs[level], data);
     if (seen !== undefined) return seen;
   } else if (nesting >= UNTRACKED_NESTING_LIMIT) {
     throw NESTING_LIMIT_REACHED;
