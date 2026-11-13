@@ -4,7 +4,7 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.7.1] - 2026-11-13
 
 ### Fixed
 
@@ -528,7 +528,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
-[Unreleased]: https://github.com/gyrgy/deep-case-crafter/compare/v3.7.0...HEAD
+[3.7.1]: https://www.npmjs.com/package/deep-case-crafter/v/3.7.1
 [3.7.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.7.0
 [3.6.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.6.0
 [3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0
