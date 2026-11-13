@@ -484,6 +484,13 @@ toShallowSnake({ userId: 1, userInfo: { firstName: 'Ann' } });
   matching paths), or results with the same number of keys and last key have other
   keys, as records with optional keys or two kinds of records can, the rest of that call
   and its later calls learn as calls to `transform` do.
+- Make one function per kind of record, such as one for users and one for orders,
+  rather than one for all of them. A shared function learns the layouts of every kind it
+  converts, so it reaches 16 sooner. And of two kinds with the same number of keys and
+  the same last key, as two tables whose last column is `updated_at` can have, only the
+  kind it learned first is fast from the first result of each call: the other is fast
+  from its third result in a call at best, and not at all in a call that meets the first
+  kind before it.
 - Strings are returned as they are, as `transform` returns them. To convert keys, use
   [`transformKey`](#transformkeykey-options):
   `keys.map((key) => transformKey(key, { targetCase: 'snake' }))`.
