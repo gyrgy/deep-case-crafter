@@ -605,6 +605,43 @@ describe('transform (recursive)', () => {
     ]);
   });
 
+  it('should convert keys to names that Object.prototype has as properties that cannot be written, as when it is frozen', () => {
+    // Object.freeze(Object.prototype) cannot be undone: these three stand for all of them
+    const names = ['toString', 'valueOf', 'constructor'];
+    const setWritable = (writable: boolean) => {
+      for (const name of names) {
+        Object.defineProperty(Object.prototype, name, { writable });
+      }
+    };
+    const run = (): object[] => {
+      setWritable(false);
+      try {
+        return [
+          transform({
+            to_string: 1,
+            value_of: { nested_key: 2 },
+            constructor: 'x',
+            user_id: 3,
+          }),
+          transform({ to_string: 1, user_id: 3 }, { exclude: ['user_id'] }),
+        ];
+      } finally {
+        setWritable(true);
+      }
+    };
+    const [result, excluded] = run();
+    expect(Object.entries(result)).toEqual([
+      ['toString', 1],
+      ['valueOf', { nestedKey: 2 }],
+      ['constructor', 'x'],
+      ['userId', 3],
+    ]);
+    expect(Object.entries(excluded)).toEqual([
+      ['toString', 1],
+      ['user_id', 3],
+    ]);
+  });
+
   it('should leave data keys written only in capitals unchanged', () => {
     const input = {
       exchange_rates: { USD: 1, EUR: 0.9 },

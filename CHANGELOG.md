@@ -32,6 +32,14 @@ All notable changes to deep-case-crafter are listed here. The format is based on
   of 20 keys, 0.3 µs for 30 keys and 0.6 µs for 50 keys that a call meets three times or
   more: 4–18% of the time of a call that converts 3 to 20 such records, the most for 3,
   and nothing for a call with fewer.
+- `transform`, and the functions that `transformTo` makes, no longer throw a `TypeError`
+  for a key that converts to a name `Object.prototype` has, when that name cannot be
+  written there, as none can once it is frozen. After `Object.freeze(Object.prototype)`,
+  `transform({ to_string: 1 })` threw `Cannot assign to read only property 'toString'`,
+  and so did `value_of`, `constructor` and the other names. Such a key is now stored as
+  the result's own property, as every other key is; while `Object.prototype` is frozen,
+  each one costs about 5 µs, as the assignment is tried first. Processes started with
+  Node's `--frozen-intrinsics` were not affected.
 
 ### Changed
 

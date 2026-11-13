@@ -569,6 +569,25 @@ for (const [name, { transformTo }] of [
   }
 }
 
+// The built file converts in a process whose Object.prototype is frozen (see
+// hostilePrototype.cjs)
+for (const mode of ['frozen']) {
+  const { stderr, status, signal, error } = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(new URL('hostilePrototype.cjs', import.meta.url)),
+      fileURLToPath(new URL('../dist/index.js', import.meta.url)),
+      mode,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (error || signal || status !== 0) {
+    failed.push(
+      `CommonJS build: converting while Object.prototype is hostile (${mode}) failed (${error ?? signal ?? `exit ${status}`}): ${stderr.slice(-500)}`,
+    );
+  }
+}
+
 if (failed.length > 0) {
   console.error(`Checks that failed:\n- ${failed.join('\n- ')}`);
   process.exit(1);
