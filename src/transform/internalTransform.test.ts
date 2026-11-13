@@ -3,6 +3,7 @@ import createExcludeState from './exclude/createExcludeState';
 import sortedPaths from './exclude/sortedPaths';
 import internalTransform from './internalTransform';
 import transformObjectKey from './transformObjectKey';
+import { NO_VALUE } from '../constants/fastObjects';
 import {
   NESTING_LIMIT_REACHED,
   UNTRACKED_NESTING_LIMIT,
@@ -658,7 +659,13 @@ describe('internalTransform', () => {
 
       expect(run.layouts?.fastWidths).toEqual([25]);
       expect(run.layouts?.fastKeys).toEqual(['fieldName24']);
-      expect(run.layouts?.fastObjects).toEqual([wideCamel(25)]);
+      // A copy without data (see copyLayout)
+      expect(Object.keys(run.layouts?.fastObjects[0] ?? {})).toEqual(
+        Object.keys(wideCamel(25)),
+      );
+      expect(Object.values(run.layouts?.fastObjects[0] ?? {})).toEqual(
+        Array(25).fill(NO_VALUE),
+      );
       for (const item of result)
         expect(run.layouts?.fastObjects[0]).not.toBe(item);
     });

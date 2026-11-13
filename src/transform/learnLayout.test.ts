@@ -5,6 +5,7 @@ import {
   LAYOUT_CANDIDATES,
   LAYOUT_MAX_KEYS,
   MAX_LAYOUTS,
+  NO_VALUE,
 } from '../constants/fastObjects';
 import { TransformOptionsInternal } from '../types/transformOptionTypes';
 
@@ -18,7 +19,7 @@ describe('learnLayout', () => {
   });
   const result = { someKey: 1, lastKey: 2 };
 
-  it('should copy the second result of a layout, and only that one', () => {
+  it('should copy the second result of a layout, and empty the copy at the third', () => {
     const options = fresh();
     learnLayout(options, result, 25, 'lastKey');
     expect(options.layouts?.fastObjects).toEqual([]);
@@ -26,9 +27,16 @@ describe('learnLayout', () => {
     const second = { ...result };
     learnLayout(options, second, 25, 'lastKey');
     expect(options.layouts?.fastObjects).toEqual([result]);
-    expect(options.layouts?.fastObjects[0]).not.toBe(result);
     expect(options.layouts?.fastObjects[0]).not.toBe(second);
 
+    // Without data from the third result on (see emptyLayout), and emptied once
+    const copy = options.layouts?.fastObjects[0];
+    learnLayout(options, result, 25, 'lastKey');
+    expect(options.layouts?.fastObjects).toEqual([
+      { someKey: NO_VALUE, lastKey: NO_VALUE },
+    ]);
+    expect(options.layouts?.fastObjects[0]).toBe(copy);
+    expect(options.layouts?.checked).toEqual([true]);
     learnLayout(options, result, 25, 'lastKey');
     expect(options.layouts?.fastObjects).toHaveLength(1);
   });
@@ -51,6 +59,21 @@ describe('learnLayout', () => {
     learnLayout(options, result, 30, 'lastKey');
     learnLayout(options, result, 30, 'lastKey');
     expect(options.layouts?.fastWidths).toEqual([]);
+  });
+
+  it('should empty the copies of layouts met twice when two results with other keys stop the call', () => {
+    const options = fresh();
+    learnLayout(options, result, 25, 'lastKey');
+    learnLayout(options, { ...result }, 25, 'lastKey');
+    expect(options.layouts?.fastObjects).toEqual([result]);
+
+    learnLayout(options, { aKey: 1, otherKey: 2 }, 30, 'otherKey');
+    learnLayout(options, { bKey: 1, otherKey: 2 }, 30, 'otherKey');
+    expect(options.layouts?.done).toBe(true);
+    expect(options.layouts?.fastObjects).toEqual([
+      { someKey: NO_VALUE, lastKey: NO_VALUE },
+    ]);
+    expect(options.layouts?.checked).toEqual([true]);
   });
 
   it('should remember the last LAYOUT_CANDIDATES layouts seen once, and only those', () => {

@@ -50,8 +50,9 @@ export interface LayoutMemory {
 
   /**
    * One fast object of each of those layouts, kept as long as the memory: V8 drops the
-   * hidden classes of a layout that no object uses any more. In a memory kept across
-   * calls, it holds no data (see `copyLayout`).
+   * hidden classes of a layout that no object uses any more. It holds no data (see
+   * `copyLayout`), in a memory of one call from the layout's third result in the call, or
+   * from when the call stops learning (see `emptyCopies`).
    */
   readonly fastObjects: object[];
 
@@ -61,7 +62,10 @@ export interface LayoutMemory {
    */
   readonly fastKeyLists: (readonly (string | symbol)[])[];
 
-  /** For a memory kept across calls: whether each layout learned has been checked in the call */
+  /**
+   * For a memory kept across calls: whether each layout learned has been checked in the
+   * call. For a memory of one call: whether its copy has been emptied (see `learnLayout`).
+   */
   readonly checked: boolean[];
 
   /** For a memory kept across calls: how many times `checkLayout` has checked each layout */

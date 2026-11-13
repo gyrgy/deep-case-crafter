@@ -4,6 +4,26 @@ All notable changes to deep-case-crafter are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- A number of another kind in the middle of a call, a fraction or one of 2^31 or more in
+  a field of whole numbers, no longer leaves the later results of 20 to 200 keys with
+  that layout in dictionary mode. From the third result of a layout in a call, or from
+  when the call stops learning layouts, `transform` keeps a copy of the layout without
+  data, as the functions that `transformTo` makes have since 3.7.0, so a number of
+  another kind in the third result leaves only that result in dictionary mode. 3.7.0
+  left every later result in dictionary mode for records built with computed keys, as
+  some database drivers build rows. Emptying the copy costs about 0.2 µs for each layout
+  of 20 keys, 0.3 µs for 30 keys and 0.6 µs for 50 keys that a call meets three times or
+  more: 4–18% of the time of a call that converts 3 to 20 such records, the most for 3,
+  and nothing for a call with fewer.
+
+### Changed
+
+- `transform` takes about 3.9 KB gzipped, bundled and minified (3.7 KB).
+
 ## [3.7.0] - 2026-11-11
 
 ### Added
@@ -484,6 +504,7 @@ Types:
   PascalCase, snake_case and kebab-case, with typed results when `sourceCase` and
   `targetCase` are given. The default `depth` is 3.
 
+[Unreleased]: https://github.com/gyrgy/deep-case-crafter/compare/v3.7.0...HEAD
 [3.7.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.7.0
 [3.6.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.6.0
 [3.5.0]: https://www.npmjs.com/package/deep-case-crafter/v/3.5.0

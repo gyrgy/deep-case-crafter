@@ -20,7 +20,8 @@ describe('copyLayout', () => {
       writable: true,
       configurable: true,
     });
-    const copy = copyLayout(result);
+    // 6 keys, __proto__ and a symbol
+    const copy = copyLayout(result, 8);
     expect(copy).not.toBe(result);
     expect(Reflect.ownKeys(copy)).toEqual(Reflect.ownKeys(result));
     for (const key of Reflect.ownKeys(copy)) {

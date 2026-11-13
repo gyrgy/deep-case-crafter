@@ -350,6 +350,56 @@ for (const [name, { transform, transformTo }] of [
       .some(isFast),
   );
 
+  // A number of another kind in the middle of a call, a fraction or one of 2^31 or more in
+  // a field of whole numbers, leaves the later results fast: from the third result of a
+  // layout, the copy that transform keeps of it holds no values, so V8 does not retire its
+  // hidden classes. Rows built with keyed stores, as some database drivers build them, keep
+  // their own kinds of numbers.
+  const keyedRow = (kind, amount) => {
+    const object = {};
+    object[`${kind}_key_0`] = 0;
+    object[`${kind}_amount`] = amount;
+    for (let i = 2; i < 25; i++) object[`${kind}_key_${i}`] = i;
+    return object;
+  };
+  for (const [name, value] of [
+    ['a fraction', 12.5],
+    ['a number of 2^31', 2 ** 31],
+  ]) {
+    const kind = tag(`midCall ${name}`.replace(/[ ^]/g, '_'));
+    check(
+      build,
+      `${name} in a field of whole numbers in the middle of a call leaves the later results fast`,
+      fastFromThird(
+        transform(
+          Array.from({ length: 8 }, (_, i) =>
+            keyedRow(kind, i === 4 ? value : i),
+          ),
+        ),
+      ),
+    );
+  }
+  // Once a call has stopped learning layouts, no third result empties the copies it keeps:
+  // they are emptied then
+  const stoppedKind = tag('midCallStopped');
+  const stoppedCall = transform([
+    keyedRow(stoppedKind, 0),
+    keyedRow(stoppedKind, 1),
+    // Two results with the same number of keys and last key, but other keys
+    ...[0, 1].map((i) => ({
+      ...wide(tag(`stop${i}`), 23),
+      [`${tag('stop')}_last`]: 1,
+    })),
+    ...Array.from({ length: 6 }, (_, i) =>
+      keyedRow(stoppedKind, i === 1 ? 12.5 : i),
+    ),
+  ]);
+  check(
+    build,
+    'a fraction after the call has stopped learning layouts leaves the later results fast',
+    fastFromThird([...stoppedCall.slice(0, 2), ...stoppedCall.slice(4)]),
+  );
+
   const sym = Symbol('meta');
   check(
     build,
